@@ -25,7 +25,11 @@ const query=(db,sql,...args)=>args.length?db.prepare(sql).bind(...args):db.prepa
 const list=async(db,sql,...args)=>(await query(db,sql,...args).all()).results||[];
 const one=async(db,sql,...args)=>query(db,sql,...args).first();
 const matches=async(a,b)=>{const ha=await sha(String(a));const hb=await sha(String(b));let diff=0;for(let i=0;i<ha.length;i++)diff|=ha.charCodeAt(i)^hb.charCodeAt(i);return diff===0;};
-const hashPassword=async(password,salt)=>{const key=await crypto.subtle.importKey('raw',formBytes(password),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:formBytes(salt),iterations:210000},key,256);return hex(new Uint8Array(bits));};
+const passwordPepper=async(pepper,salt,verifier)=>{
+ const key=await crypto.subtle.importKey('raw',formBytes(pepper),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+ const value=await crypto.subtle.sign('HMAC',key,formBytes(salt+':'+verifier));
+ return hex(new Uint8Array(value));
+};
 const sendMail=async(env,to,subject,body)=>{
  if(!env.RESEND_API_KEY||!env.AUTH_FROM_EMAIL)throw new Error('email_not_configured');
  const res=await fetch('https://api.resend.com/emails',{method:'POST',headers:{authorization:'Bearer '+env.RESEND_API_KEY,'content-type':'application/json'},body:JSON.stringify({from:env.AUTH_FROM_EMAIL,to:[to],subject,text:body})});
@@ -110,24 +114,31 @@ async function route(ctx,path,data){
    return json({ok:true},200,{'set-cookie':clearCookie});
  }
  if(path==='setup/owner'&&method==='POST'){
-   if(!ctx.env.SETUP_TOKEN||ctx.env.SETUP_TOKEN.length<32)return fail('初期設定用シークレットが未設定です',503);
+   if(!ctx.env.SETUP_TOKEN||ctx.env.SETUP_TOKEN.length<32||!ctx.env.PASSWORD_PEPPER||ctx.env.PASSWORD_PEPPER.length<32)return fail('初期設定用のシークレットが未設定です',503);
    if(await one(db,"SELECT id FROM staff_accounts WHERE role='owner' AND status='active' LIMIT 1"))return fail('初期設定は完了しています',409);
    if(!(await matches(data.setupToken,ctx.env.SETUP_TOKEN)))return fail('初期設定キーが違います',403);
-   const email=field(data.email,254).toLowerCase(),password=String(data.password||''),name=field(data.name,80)||'オーナー';
-   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||password.length<14||password.length>128)return fail('メールアドレスと14文字以上のパスワードが必要です');
-   const salt=random(),hash=await hashPassword(password,salt),id=uid();
+   const email=field(data.email,254).toLowerCase(),salt=field(data.passwordSalt,64),verifier=field(data.passwordVerifier,64),name=field(data.name,80)||'オーナー';
+   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||!(/^[0-9a-f]{64}$/.test(salt))||!(/^[0-9a-f]{64}$/.test(verifier)))return fail('メールアドレスとパスワードの設定内容が不正です');
+   const hash=await passwordPepper(ctx.env.PASSWORD_PEPPER,salt,verifier),id=uid();
    const result=await query(db,`INSERT INTO staff_accounts(id,email,display_name,role,status,password_salt,password_hash,created_at,updated_at)
  SELECT ?,?,?,'owner','active',?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM staff_accounts WHERE role='owner')`,id,email,name,salt,hash,now(),now()).run();
    if(!result.meta?.changes)return fail('オーナーはすでに登録されています',409);
    return json({ok:true,message:'登録しました。メールによる追加認証を設定してログインしてください。'});
  }
+ if(path==='auth/admin/salt'&&method==='POST'){
+   const email=field(data.email,254).toLowerCase();
+   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return fail('メールアドレスを確認してください');
+   const staff=await one(db,"SELECT password_salt FROM staff_accounts WHERE email=? AND status='active'",email);
+   return json({salt:staff?.password_salt||random()});
+ }
  if(path==='auth/admin/login'&&method==='POST'){
-   if(!ctx.env.RESEND_API_KEY||!ctx.env.AUTH_FROM_EMAIL)return fail('メール二段階認証の送信設定が未完了です',503);
-   const email=field(data.email,254).toLowerCase(),password=String(data.password||'');
+   if(!ctx.env.RESEND_API_KEY||!ctx.env.AUTH_FROM_EMAIL||!ctx.env.PASSWORD_PEPPER)return fail('管理者認証のシークレット設定が未完了です',503);
+   const email=field(data.email,254).toLowerCase(),verifier=field(data.passwordVerifier,64);
    const throttle=await one(db,'SELECT * FROM login_throttles WHERE email=?',email);
    if(throttle?.blocked_until&&throttle.blocked_until>now())return fail('一定時間後に再度お試しください',429);
    const staff=await one(db,"SELECT * FROM staff_accounts WHERE email=? AND status='active'",email);
-   const given=staff?.password_salt||random();const computed=await hashPassword(password,given);
+   const given=staff?.password_salt||random();
+   const computed=/^[0-9a-f]{64}$/.test(verifier)?await passwordPepper(ctx.env.PASSWORD_PEPPER,given,verifier):random();
    const ok=staff?.password_hash&&await matches(computed,staff.password_hash);
    if(!ok){let failures=(throttle?.failures||0)+1,blocked=failures>=5?expAt(.25):null;
      await query(db,`INSERT INTO login_throttles(email,failures,blocked_until,updated_at) VALUES(?,?,?,?) ON CONFLICT(email) DO UPDATE SET failures=excluded.failures,blocked_until=excluded.blocked_until,updated_at=excluded.updated_at`,email,failures,blocked,now()).run();

@@ -6,6 +6,12 @@ const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt
 const fmt=iso=>iso?String(iso).replace('T',' ').slice(0,16):'—';
 const d=iso=>iso?String(iso).slice(0,10):'—';
 const money=n=>'¥'+Number(n||0).toLocaleString('ja-JP');
+const hex=a=>Array.from(a).map(n=>n.toString(16).padStart(2,'0')).join('');
+const derivePassword=async(password,salt)=>{
+ const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);
+ const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:new TextEncoder().encode(salt),iterations:210000},key,256);
+ return hex(new Uint8Array(bits));
+};
 const today=()=>{const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const obj=Object.fromEntries(parts.map(p=>[p.type,p.value]));return `${obj.year}-${obj.month}-${obj.day}`;};
 const monthOffset=(m,n)=>{const t=new Date(m+'-01T12:00:00Z');t.setUTCMonth(t.getUTCMonth()+n);return t.toISOString().slice(0,7)};
 const btn=(label,action,cls='')=>`<button class="button ${cls}" data-action="${action}">${h(label)}</button>`;
@@ -82,8 +88,8 @@ async function action(name,id){
  if(name==='change-approve'||name==='change-decline'){await mutate('admin/change-decision',{id,decision:name==='change-approve'?'approve':'decline'},'処理しました');return;}
 }
 async function submit(form){const data=Object.fromEntries(new FormData(form));const name=form.dataset.form;
- if(name==='setup'){await mutate('setup/owner',data,'オーナーを登録しました。次にログインしてください');return;}
- if(name==='login'){try{const r=await api('auth/admin/login',data);view.challenge=r.challengeId;view.error='';view.success='';render();}catch(e){notice(errText(e),true);}return;}
+ if(name==='setup'){if(data.password.length<14)return notice('パスワードは14文字以上にしてください',true);const passwordSalt=hex(crypto.getRandomValues(new Uint8Array(32)));const passwordVerifier=await derivePassword(data.password,passwordSalt);await mutate('setup/owner',{name:data.name,email:data.email,setupToken:data.setupToken,passwordSalt,passwordVerifier},'オーナーを登録しました。次にログインしてください');return;}
+ if(name==='login'){try{const salt=(await api('auth/admin/salt',{email:data.email})).salt;const passwordVerifier=await derivePassword(data.password,salt);const r=await api('auth/admin/login',{email:data.email,passwordVerifier});view.challenge=r.challengeId;view.error='';view.success='';render();}catch(e){notice(errText(e),true);}return;}
  if(name==='otp'){try{await api('auth/admin/verify',{challengeId:view.challenge,code:data.code});view.challenge='';await load();}catch(e){notice(errText(e),true);}return;}
  if(name==='contact'){await mutate('member/contact-change',data,'変更を申請しました');return;}
  if(name==='member'){await mutate('admin/members',data,'会員を登録しました');return;}
