@@ -1,7 +1,7 @@
 /* SHIFTREX production frontend; all data is fetched from authenticated Pages Functions. */
 (()=>{'use strict';
 const root=document.getElementById('app');const admin=document.body.dataset.app==='admin';
-const view={tab:'home',busy:false,auth:null,data:null,error:'',success:'',challenge:'',invite:'',selectedDay:'',monthView:'',pendingId:'',modal:null,calendarMode:'month'};
+const view={tab:'home',busy:false,auth:null,data:null,error:'',success:'',challenge:'',totpSetup:null,invite:'',selectedDay:'',monthView:'',pendingId:'',modal:null,calendarMode:'month'};
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=iso=>iso?String(iso).replace('T',' ').slice(0,16):'—';
 const d=iso=>iso?String(iso).slice(0,10):'—';
@@ -21,6 +21,7 @@ const nav=admin?[['home','⌂','ホーム'],['booking','▣','予約管理'],['m
 function content(html,subtitle=''){
  const title=admin?'MANAGEMENT':'MEMBERSHIP';
  root.innerHTML=`<div class="app"><header class="mast"><span class="logo-mark">SR</span><div class="brand"><strong>SHIFTREX</strong><small>${title}</small></div><span class="secure-tag">${view.auth?.authenticated?'● 接続中':'● セキュア'}</span></header><main class="surface"><div class="greeting">${subtitle?`<div class="eyebrow">${h(subtitle)}</div>`:''}</div>${view.error?`<div class="alert alert-error" role="alert">${h(view.error)}</div>`:''}${view.success?`<div class="alert alert-good" role="status">${h(view.success)}</div>`:''}${html}<footer class="foot">© SHIFTREX · CLOUD DATABASE</footer></main>${view.auth?.authenticated?`<div class="nav-shell"><nav class="tabbar">${nav.map(([id,ico,label])=>`<button class="tab ${view.tab===id?'active':''}" data-tab="${id}"><span class="tabicon">${ico}</span><span>${label}</span></button>`).join('')}</nav></div>`:''}${view.modal?`<div class="overlay"><div class="modal" role="dialog" aria-modal="true">${view.modal}</div></div>`:''}</div>`;
+ renderTotpSetup();
 }
 const errText=e=>e instanceof Error?e.message:String(e);
 async function api(path,body){
@@ -32,9 +33,23 @@ async function api(path,body){
 }
 const notice=(msg,isError=false)=>{if(isError){view.error=msg;view.success='';}else{view.success=msg;view.error='';}render();};
 function disabled(error){content(`<section class="auth-card"><span class="logo-large">SR</span><h1>サービス準備中</h1><p>SHIFTREXの本番用データベース、または認証設定が未完了です。</p><div class="alert alert-error">${h(error||'Cloudflareの設定を確認してください')}</div><p class="muted small">安全のため、実際の会員情報や予約を入力できない状態にしています。設定はCloudflare管理画面から行います。</p>${btn('接続を再確認','refresh')}</section>`);}
+function renderTotpSetup(){
+ if(!admin||!view.challenge||!view.totpSetup)return;
+ const form=root.querySelector('form[data-form="otp"]');if(!form)return;
+ const box=document.createElement('div');box.className='alert alert-good';
+ const title=document.createElement('strong');title.textContent='初回のみ：認証アプリの設定';box.appendChild(title);
+ const desc=document.createElement('p');desc.textContent='iPhoneの「パスワード」アプリや無料の認証アプリに、下の設定キーを手動で追加してください。アカウント名はSHIFTREXです。';box.appendChild(desc);
+ const label=document.createElement('p');label.textContent='設定キー（第三者に共有しないでください）';box.appendChild(label);
+ const key=document.createElement('code');key.textContent=view.totpSetup.secret;
+ Object.assign(key.style,{display:'block',overflowWrap:'anywhere',userSelect:'all',fontSize:'16px',letterSpacing:'.08em',padding:'12px',border:'1px solid currentColor',borderRadius:'10px'});
+ box.appendChild(key);
+ const copy=document.createElement('button');copy.type='button';copy.className='button ghost';copy.dataset.action='copy-totp';copy.textContent='設定キーをコピー';box.appendChild(copy);
+ const note=document.createElement('p');note.textContent='登録後、認証アプリに表示された6桁コードを入力してください。設定キーは安全な場所に保管してください。';box.appendChild(note);
+ form.before(box);
+}
 function loginScreen(){
  if(admin){const configured=view.auth?.adminConfigured;
- content(`<section class="auth-card"><span class="logo-large">SR</span><h1>管理者ログイン</h1><p class="muted">${configured?'メールアドレス・パスワードとメール確認コードで認証します。':'初回のみ、Cloudflareに設定した初期設定キーでオーナーを登録します。'}</p>${view.challenge?`<form data-form="otp"><label>メールで受信した6桁の確認コード<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label><button class="button main" type="submit">本人確認を完了</button></form><button class="button ghost" data-action="cancel-otp">戻る</button>`:configured?`<form data-form="login"><label>メールアドレス<input name="email" type="email" autocomplete="username" required></label><label>パスワード<input name="password" type="password" autocomplete="current-password" required></label><button class="button main" type="submit">ログイン</button></form>`:`<form data-form="setup"><label>Cloudflare初期設定キー<input name="setupToken" type="password" required></label><label>オーナー名<input name="name" required maxlength="80"></label><label>メールアドレス<input type="email" name="email" required></label><label>パスワード（14文字以上）<input type="password" name="password" minlength="14" maxlength="128" autocomplete="new-password" required></label><button class="button main" type="submit">オーナーを登録</button></form>`}</section>`);
+ content(`<section class="auth-card"><span class="logo-large">SR</span><h1>管理者ログイン</h1><p class="muted">${configured?'メール形式のログインID・パスワードと認証アプリの6桁コードを使用します。メール送信は行いません。':'初回のみ、Cloudflareに設定した初期設定キーでオーナーを登録します。'}</p>${view.challenge?`<form data-form="otp"><label>認証アプリの6桁コード<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label><button class="button main" type="submit">本人確認を完了</button></form><button class="button ghost" data-action="cancel-otp">戻る</button>`:configured?`<form data-form="login"><label>メールアドレス<input name="email" type="email" autocomplete="username" required></label><label>パスワード<input name="password" type="password" autocomplete="current-password" required></label><button class="button main" type="submit">ログイン</button></form>`:`<form data-form="setup"><label>Cloudflare初期設定キー<input name="setupToken" type="password" required></label><label>オーナー名<input name="name" required maxlength="80"></label><label>メールアドレス<input type="email" name="email" required></label><label>パスワード（14文字以上）<input type="password" name="password" minlength="14" maxlength="128" autocomplete="new-password" required></label><button class="button main" type="submit">オーナーを登録</button></form>`}</section>`);
  }else{
  content(`<section class="auth-card"><span class="logo-large">SR</span><h1>SHIFTREXへようこそ</h1><p>予約とチケット情報はLINEログインで確認できます。</p>${view.invite?`<div class="alert alert-good">招待リンクを確認しました。LINEで会員登録を完了してください。</div>`:''}<a class="button main" href="/api/auth/line/start${view.invite?'?invite='+encodeURIComponent(view.invite):''}">LINEでログインする</a><p class="muted small">会員登録はジム管理者が行います。初回利用には専用招待リンクが必要です。</p></section>`);
  }
@@ -71,7 +86,8 @@ async function mutate(path,data,msg){view.error='';view.success='';try{await api
 function modal(title,body){view.modal=`<h2>${h(title)}</h2>${body}<button class="button ghost" data-action="close">閉じる</button>`;render();}
 async function action(name,id){
  if(name==='refresh'){await load();return;}
- if(name==='cancel-otp'){view.challenge='';render();return;}
+ if(name==='cancel-otp'){view.challenge='';view.totpSetup=null;render();return;}
+ if(name==='copy-totp'){try{await navigator.clipboard.writeText(view.totpSetup?.secret||'');notice('設定キーをコピーしました');}catch(e){notice('コピーできません。設定キーを長押ししてコピーしてください',true);}return;}
  if(name==='close'){view.modal=null;render();return;}
  if(name==='logout'){await mutate('auth/logout',{},'ログアウトしました');view.auth={authenticated:false,adminConfigured:true};view.data=null;view.success='';render();return;}
  if(name==='prev-month'||name==='next-month'){view.monthView=monthOffset(view.monthView,name==='prev-month'?-1:1);view.selectedDay=view.monthView+'-01';render();return;}
@@ -89,8 +105,8 @@ async function action(name,id){
 }
 async function submit(form){const data=Object.fromEntries(new FormData(form));const name=form.dataset.form;
  if(name==='setup'){if(data.password.length<14)return notice('パスワードは14文字以上にしてください',true);const passwordSalt=hex(crypto.getRandomValues(new Uint8Array(32)));const passwordVerifier=await derivePassword(data.password,passwordSalt);await mutate('setup/owner',{name:data.name,email:data.email,setupToken:data.setupToken,passwordSalt,passwordVerifier},'オーナーを登録しました。次にログインしてください');return;}
- if(name==='login'){try{const salt=(await api('auth/admin/salt',{email:data.email})).salt;const passwordVerifier=await derivePassword(data.password,salt);const r=await api('auth/admin/login',{email:data.email,passwordVerifier});view.challenge=r.challengeId;view.error='';view.success='';render();}catch(e){notice(errText(e),true);}return;}
- if(name==='otp'){try{await api('auth/admin/verify',{challengeId:view.challenge,code:data.code});view.challenge='';await load();}catch(e){notice(errText(e),true);}return;}
+ if(name==='login'){try{const salt=(await api('auth/admin/salt',{email:data.email})).salt;const passwordVerifier=await derivePassword(data.password,salt);const r=await api('auth/admin/login',{email:data.email,passwordVerifier});view.challenge=r.challengeId;view.totpSetup=r.setup||null;view.error='';view.success='';render();}catch(e){notice(errText(e),true);}return;}
+ if(name==='otp'){try{await api('auth/admin/verify',{challengeId:view.challenge,code:data.code});view.challenge='';view.totpSetup=null;await load();}catch(e){notice(errText(e),true);}return;}
  if(name==='contact'){await mutate('member/contact-change',data,'変更を申請しました');return;}
  if(name==='member'){await mutate('admin/members',data,'会員を登録しました');return;}
  if(name==='slot'){await mutate('admin/slots',data,'予約枠を登録しました');return;}
