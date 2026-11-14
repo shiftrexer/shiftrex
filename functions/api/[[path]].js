@@ -30,11 +30,19 @@ const passwordPepper=async(pepper,salt,verifier)=>{
  const value=await crypto.subtle.sign('HMAC',key,formBytes(salt+':'+verifier));
  return hex(new Uint8Array(value));
 };
-const sendMail=async(env,to,subject,body)=>{
- if(!env.RESEND_API_KEY||!env.AUTH_FROM_EMAIL)throw new Error('email_not_configured');
- const res=await fetch('https://api.resend.com/emails',{method:'POST',headers:{authorization:'Bearer '+env.RESEND_API_KEY,'content-type':'application/json'},body:JSON.stringify({from:env.AUTH_FROM_EMAIL,to:[to],subject,text:body})});
- if(!res.ok)throw new Error('email_delivery_failed');
-};
+// RFC 6238 TOTP; no email provider. Encrypt seeds with a key derived from PASSWORD_PEPPER.
+const B32='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const toB32=buf=>{let n=0,b=0,out='';for(const x of buf){n=(n<<8)|x;b+=8;while(b>=5)out+=B32[(n>>>(b-=5))&31];}if(b)out+=B32[(n<<(5-b))&31];return out;};
+const fromB32=str=>{let n=0,b=0,out=[];for(const c of str){const k=B32.indexOf(c);if(k<0)throw Error('bad_seed');n=(n<<5)|k;b+=5;if(b>=8)out.push((n>>>(b-=8))&255);}return new Uint8Array(out);};
+const decodeUrl=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-s.length%4)%4)),c=>c.charCodeAt(0));
+const seedKey=async pepper=>crypto.subtle.importKey('raw',await crypto.subtle.digest('SHA-256',formBytes('SHIFTREX/TOTP/v1/'+pepper)),{name:'AES-GCM'},false,['encrypt','decrypt']);
+const sealSeed=async(pepper,seed)=>{const iv=bytes(12);const cipher=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await seedKey(pepper),formBytes(seed)));return 'v1.'+b64url(iv)+'.'+b64url(cipher);};
+const openSeed=async(pepper,value)=>{const a=value.split('.');if(a.length!==3||a[0]!=='v1')throw Error('invalid_seed');return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:decodeUrl(a[1])},await seedKey(pepper),decodeUrl(a[2])));};
+const generateCode=async(seed,step)=>{const k=await crypto.subtle.importKey('raw',fromB32(seed),{name:'HMAC',hash:'SHA-1'},false,['sign']);const a=new ArrayBuffer(8);new DataView(a).setUint32(4,step,false);const mac=new Uint8Array(await crypto.subtle.sign('HMAC',k,a));const o=mac[19]&15;return String(((((mac[o]&127)<<24)|((mac[o+1]&255)<<16)|((mac[o+2]&255)<<8)|(mac[o+3]&255))%1000000)).padStart(6,'0');};
+const checkTOTP=async(seed,code,used)=>{if(!/^\d{6}$/.test(code))return null;const step=Math.floor(Date.now()/30000);for(const n of [step-1,step,step+1])if(n>used&&await matches(await generateCode(seed,n),code))return n;return null;};
+const otpKey=id=>'staff_totp:'+id;
+const otpRow=async(db,id)=>{const row=await one(db,'SELECT value_json FROM system_settings WHERE key=?',otpKey(id));return row?{raw:row.value_json,...JSON.parse(row.value_json)}:null;};
+const failAuth=async(db,email)=>{const row=await one(db,'SELECT failures FROM login_throttles WHERE email=?',email);const count=(row?.failures||0)+1;await query(db,"INSERT INTO login_throttles(email,failures,blocked_until,updated_at) VALUES(?,?,?,?) ON CONFLICT(email) DO UPDATE SET failures=excluded.failures,blocked_until=excluded.blocked_until,updated_at=excluded.updated_at",email,count,count>=5?expAt(.25):null,now()).run();};
 const requireOwner=a=>a?.type==='staff'&&a.role==='owner';
 const requireAdmin=a=>a?.type==='staff'&&['owner','manager','staff'].includes(a.role);
 const requireManager=a=>a?.type==='staff'&&['owner','manager'].includes(a.role);
@@ -123,7 +131,7 @@ async function route(ctx,path,data){
    const result=await query(db,`INSERT INTO staff_accounts(id,email,display_name,role,status,password_salt,password_hash,created_at,updated_at)
  SELECT ?,?,?,'owner','active',?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM staff_accounts WHERE role='owner')`,id,email,name,salt,hash,now(),now()).run();
    if(!result.meta?.changes)return fail('オーナーはすでに登録されています',409);
-   return json({ok:true,message:'登録しました。メールによる追加認証を設定してログインしてください。'});
+   return json({ok:true,message:'登録しました。ログインして認証アプリを設定してください。'});
  }
  if(path==='auth/admin/salt'&&method==='POST'){
    const email=field(data.email,254).toLowerCase();
@@ -132,32 +140,46 @@ async function route(ctx,path,data){
    return json({salt:staff?.password_salt||random()});
  }
  if(path==='auth/admin/login'&&method==='POST'){
-   if(!ctx.env.RESEND_API_KEY||!ctx.env.AUTH_FROM_EMAIL||!ctx.env.PASSWORD_PEPPER)return fail('管理者認証のシークレット設定が未完了です',503);
+   if(!ctx.env.PASSWORD_PEPPER||ctx.env.PASSWORD_PEPPER.length<32)return fail('管理者認証の秘密情報が未設定です',503);
    const email=field(data.email,254).toLowerCase(),verifier=field(data.passwordVerifier,64);
-   const throttle=await one(db,'SELECT * FROM login_throttles WHERE email=?',email);
-   if(throttle?.blocked_until&&throttle.blocked_until>now())return fail('一定時間後に再度お試しください',429);
+   const blocked=await one(db,'SELECT blocked_until FROM login_throttles WHERE email=?',email);
+   if(blocked?.blocked_until&&blocked.blocked_until>now())return fail('一定時間後に再度お試しください',429);
    const staff=await one(db,"SELECT * FROM staff_accounts WHERE email=? AND status='active'",email);
-   const given=staff?.password_salt||random();
-   const computed=/^[0-9a-f]{64}$/.test(verifier)?await passwordPepper(ctx.env.PASSWORD_PEPPER,given,verifier):random();
-   const ok=staff?.password_hash&&await matches(computed,staff.password_hash);
-   if(!ok){let failures=(throttle?.failures||0)+1,blocked=failures>=5?expAt(.25):null;
-     await query(db,`INSERT INTO login_throttles(email,failures,blocked_until,updated_at) VALUES(?,?,?,?) ON CONFLICT(email) DO UPDATE SET failures=excluded.failures,blocked_until=excluded.blocked_until,updated_at=excluded.updated_at`,email,failures,blocked,now()).run();
-     return fail('メールアドレスまたはパスワードが違います',401);
+   const salt=staff?.password_salt||random();
+   const hash=/^[0-9a-f]{64}$/.test(verifier)?await passwordPepper(ctx.env.PASSWORD_PEPPER,salt,verifier):random();
+   if(!(staff?.password_hash&&await matches(hash,staff.password_hash))){await failAuth(db,email);return fail('ログインIDまたはパスワードが違います',401);}
+   let otp=await otpRow(db,staff.id);
+   if(!otp){
+     const seed=toB32(bytes(20)),cipher=await sealSeed(ctx.env.PASSWORD_PEPPER,seed);
+     await query(db,'INSERT OR IGNORE INTO system_settings(key,value_json,updated_at) VALUES(?,?,?)',otpKey(staff.id),JSON.stringify({cipher,enabled:false,lastStep:-1}),now()).run();
+     otp=await otpRow(db,staff.id);
    }
-   const code=String(crypto.getRandomValues(new Uint32Array(1))[0]%1000000).padStart(6,'0');const id=uid();
-   await query(db,'INSERT INTO login_challenges(id,staff_id,code_hash,expires_at,created_at) VALUES(?,?,?,?,?)',id,staff.id,await sha(id+':'+code),expAt(10/60),now()).run();
-   try{await sendMail(ctx.env,email,'SHIFTREX ログイン確認コード','ログイン確認コード：'+code+'\n有効期限：10分\n心当たりがなければ無視してください。');}
-   catch(e){await query(db,'DELETE FROM login_challenges WHERE id=?',id).run();return fail('確認メールを送信できません。送信設定をご確認ください',503);}
-   await query(db,'DELETE FROM login_throttles WHERE email=?',email).run();return json({challengeId:id,message:'確認コードをメールに送信しました'});
+   const id=uid();
+   await query(db,'INSERT INTO login_challenges(id,staff_id,code_hash,expires_at,created_at) VALUES(?,?,?,?,?)',id,staff.id,await sha(random()),expAt(5/60),now()).run();
+   const setup=otp.enabled?null:{secret:await openSeed(ctx.env.PASSWORD_PEPPER,otp.cipher)};
+   return json({challengeId:id,mode:'totp',setup});
  }
  if(path==='auth/admin/verify'&&method==='POST'){
+   if(!ctx.env.PASSWORD_PEPPER)return fail('認証設定が未完了です',503);
    const challenge=await one(db,'SELECT * FROM login_challenges WHERE id=?',field(data.challengeId,64));
-   if(!challenge||challenge.expires_at<now()||challenge.consumed_at||challenge.attempts>=5)return fail('コードの有効期限切れ、または試行回数超過です',401);
-   await query(db,'UPDATE login_challenges SET attempts=attempts+1 WHERE id=?',challenge.id).run();
-   if(!(await matches(await sha(challenge.id+':'+field(data.code,6)),challenge.code_hash)))return fail('確認コードが違います',401);
-   const done=await query(db,'UPDATE login_challenges SET consumed_at=? WHERE id=? AND consumed_at IS NULL AND attempts<=5',now(),challenge.id).run();
-   if(!done.meta?.changes)return fail('このコードは使用できません',401);
-   const token=await newSession(db,'staff',challenge.staff_id,14);
+   if(!challenge||challenge.expires_at<now()||challenge.consumed_at||challenge.attempts>=5)return fail('認証期限切れ、または試行回数超過です。再ログインしてください',401);
+   const staff=await one(db,"SELECT id,email FROM staff_accounts WHERE id=? AND status='active'",challenge.staff_id);
+   if(!staff)return fail('認証できません',401);
+   const blocked=await one(db,'SELECT blocked_until FROM login_throttles WHERE email=?',staff.email);
+   if(blocked?.blocked_until&&blocked.blocked_until>now())return fail('一定時間後に再度お試しください',429);
+   await query(db,'UPDATE login_challenges SET attempts=attempts+1 WHERE id=? AND consumed_at IS NULL AND attempts<5',challenge.id).run();
+   const otp=await otpRow(db,staff.id);
+   if(!otp)return fail('認証アプリの登録が必要です',401);
+   const secret=await openSeed(ctx.env.PASSWORD_PEPPER,otp.cipher);
+   const step=await checkTOTP(secret,field(data.code,6),Number(otp.lastStep??-1));
+   if(step===null){await failAuth(db,staff.email);return fail('認証アプリの確認コードが違います',401);}
+   const next=JSON.stringify({cipher:otp.cipher,enabled:true,lastStep:step});
+   const updated=await query(db,'UPDATE system_settings SET value_json=?,updated_at=? WHERE key=? AND value_json=?',next,now(),otpKey(staff.id),otp.raw).run();
+   if(!updated.meta?.changes)return fail('同じコードは再使用できません。次のコードでお試しください',409);
+   const done=await query(db,'UPDATE login_challenges SET consumed_at=? WHERE id=? AND consumed_at IS NULL AND expires_at>? AND attempts<=5',now(),challenge.id,now()).run();
+   if(!done.meta?.changes)return fail('もう一度ログインしてください',401);
+   await query(db,'DELETE FROM login_throttles WHERE email=?',staff.email).run();
+   const token=await newSession(db,'staff',staff.id,14);
    return json({ok:true},200,{'set-cookie':cookie(token,14)});
  }
  if(path==='member/state'&&method==='GET'){
