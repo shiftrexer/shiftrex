@@ -40,4 +40,11 @@ r=await request('member/state',{},memberCookie,'GET');assert.equal(r.response.st
 r=await request('member/bookings',{slotId:slot},memberCookie);assert.equal(r.response.status,200,JSON.stringify(r.obj));assert.equal(r.obj.status,'confirmed');
 r=await request('member/bookings',{slotId:conflictSlot},memberCookie);assert.equal(r.response.status,409,JSON.stringify(r.obj));
 assert.equal(native.prepare('SELECT available_count FROM tickets').get().available_count,7);
-console.log('PASS owner setup / email OTP / member create / ticket issuance / LINE invite + callback / booking lock');
+const firstBooking=native.prepare("SELECT id FROM booking_requests WHERE status='confirmed'").get().id;
+r=await request('admin/cancel-booking',{id:firstBooking,returnTicket:true},staffCookie);
+assert.equal(r.response.status,200,JSON.stringify(r.obj));
+assert.equal(native.prepare('SELECT available_count FROM tickets').get().available_count,8);
+r=await request('admin/cancel-booking',{id:firstBooking,returnTicket:true},staffCookie);
+assert.equal(r.response.status,409,JSON.stringify(r.obj));
+assert.equal(native.prepare('SELECT available_count FROM tickets').get().available_count,8);
+console.log('PASS owner setup / email OTP / member create / ticket issuance / LINE invite + callback / booking lock / exactly-once cancel refund');

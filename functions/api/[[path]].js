@@ -230,9 +230,8 @@ async function route(ctx,path,data){
    const id=field(data.id,100),r=await one(db,"SELECT * FROM booking_requests WHERE id=? AND status='confirmed'",id);
    if(!r)return fail('取消できる予約ではありません',409);
    const giveBack=data.returnTicket===true;
-   const commands=[query(db,"UPDATE booking_requests SET status='canceled',updated_at=? WHERE id=? AND status='confirmed'",now(),id)];
-   if(giveBack&&r.ticket_id){commands.push(query(db,'UPDATE tickets SET available_count=available_count+1,updated_at=? WHERE id=?',now(),r.ticket_id));commands.push(query(db,`INSERT INTO ticket_events(id,ticket_id,booking_id,amount_delta,reason,created_by,created_at) VALUES(?,?,?,1,'booking_canceled',?,?)`,uid(),r.ticket_id,id,actor.id,now()));}
-   commands.push(audit(db,actor,'cancel_booking','booking',id,{giveBack}));await db.batch(commands);return json({ok:true});
+   await db.batch([query(db,'INSERT INTO booking_cancellations(booking_id,return_ticket,canceled_by,created_at) VALUES(?,?,?,?)',id,giveBack?1:0,actor.id,now()),audit(db,actor,'cancel_booking','booking',id,{giveBack})]);
+   return json({ok:true});
  }
  if(path==='admin/menus'&&method==='POST'){
    if(!requireManager(actor))return fail('操作権限がありません',403);
@@ -341,7 +340,7 @@ export async function onRequest(ctx){
    return await route(ctx,path,data);
  }catch(e){
    console.error('SHIFTREX API request failed',path,e?.message||e);
-   if(String(e?.message||e).includes('UNIQUE constraint')||String(e?.message||e).includes('booking_locks')||String(e?.message||e).includes('ticket_invalid_or_expired')||String(e?.message||e).includes('pending_ticket_limit'))return fail('予約枠・チケットの状態が変更されました。更新してお試しください',409);
+   if(String(e?.message||e).includes('UNIQUE constraint')||String(e?.message||e).includes('booking_locks')||String(e?.message||e).includes('ticket_invalid_or_expired')||String(e?.message||e).includes('pending_ticket_limit')||String(e?.message||e).includes('already_canceled'))return fail('予約枠・チケットの状態が変更されました。更新してお試しください',409);
    return fail('サーバーで処理できませんでした',500);
  }
 }

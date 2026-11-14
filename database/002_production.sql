@@ -114,3 +114,26 @@ BEGIN
       AND (t.expires_on IS NULL OR substr(s.starts_at,1,10)<=t.expires_on)
   ),0) THEN RAISE(ABORT,'pending_ticket_limit') END;
 END;
+
+-- Exactly-once cancellation: no duplicated ticket refunds if requests race.
+CREATE TABLE IF NOT EXISTS booking_cancellations (
+  booking_id TEXT PRIMARY KEY REFERENCES booking_requests(id),
+  return_ticket INTEGER NOT NULL CHECK (return_ticket IN (0,1)),
+  canceled_by TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS booking_cancel_once
+AFTER INSERT ON booking_cancellations
+BEGIN
+  SELECT CASE WHEN NOT EXISTS (
+    SELECT 1 FROM booking_requests WHERE id=NEW.booking_id AND status='confirmed'
+  ) THEN RAISE(ABORT,'already_canceled') END;
+  UPDATE booking_requests SET status='canceled',updated_at=NEW.created_at
+    WHERE id=NEW.booking_id AND status='confirmed';
+  UPDATE tickets SET available_count=available_count+1,updated_at=NEW.created_at
+    WHERE id=(SELECT ticket_id FROM booking_requests WHERE id=NEW.booking_id)
+      AND NEW.return_ticket=1;
+  INSERT INTO ticket_events(id,ticket_id,booking_id,amount_delta,reason,created_by,created_at)
+    SELECT lower(hex(randomblob(16))),ticket_id,NEW.booking_id,1,'booking_canceled',NEW.canceled_by,NEW.created_at
+    FROM booking_requests WHERE id=NEW.booking_id AND NEW.return_ticket=1 AND ticket_id IS NOT NULL;
+END;
