@@ -53,4 +53,10 @@ assert.equal(native.prepare('SELECT available_count FROM tickets').get().availab
 r=await request('admin/cancel-booking',{id:firstBooking,returnTicket:true},staffCookie);
 assert.equal(r.response.status,409,JSON.stringify(r.obj));
 assert.equal(native.prepare('SELECT available_count FROM tickets').get().available_count,8);
-console.log('PASS owner setup / offline TOTP / member create / ticket issuance / LINE invite + callback / booking lock / exactly-once cancel refund');
+r=await request('admin/state',{},staffCookie,'GET');assert.equal(r.obj.members.find(m=>m.id===mid)?.line_linked,1);
+r=await request('admin/line-unlink',{memberId:mid,confirm:'LINE連携解除'},staffCookie);assert.equal(r.response.status,200,JSON.stringify(r.obj));
+r=await request('member/state',{},memberCookie,'GET');assert.equal(r.response.status,401,'previous LINE session must be revoked');
+r=await request('admin/state',{},staffCookie,'GET');assert.equal(r.obj.members.find(m=>m.id===mid)?.line_linked,0);
+r=await request('admin/invites',{memberId:mid},staffCookie);assert.equal(r.response.status,200,'member may be reinvited after unlink');
+console.log('PASS owner setup / offline TOTP / tickets / LINE link and unlink / session revocation / re-invite / booking locking / once-only cancel');
+
