@@ -89,7 +89,7 @@ async function slotAllowed(db,slotId,memberId){
 }
 async function adminState(db){
  const [members,slots,requests,tickets,menus,purchases,payments,notices]=await Promise.all([
- list(db,'SELECT id,display_name,name_kana,phone,email,joined_on,status,paused_from,paused_through,leave_on FROM members ORDER BY created_at DESC LIMIT 300'),
+ list(db,'SELECT id,display_name,name_kana,phone,email,joined_on,status,paused_from,paused_through,leave_on,CASE WHEN line_subject IS NULL THEN 0 ELSE 1 END AS line_linked FROM members ORDER BY created_at DESC LIMIT 300'),
  list(db,'SELECT id,starts_at,ends_at,mode,enabled FROM booking_slots WHERE starts_at>=? ORDER BY starts_at LIMIT 600',jstDay()),
  list(db,`SELECT r.id,r.slot_id,r.member_id,r.status,r.ticket_id,r.created_at,r.decline_reason,s.starts_at,m.display_name AS member_name FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id JOIN members m ON m.id=r.member_id WHERE s.starts_at>=? ORDER BY s.starts_at LIMIT 500`,jstDay()),
  list(db,'SELECT * FROM tickets ORDER BY created_at DESC LIMIT 500'),
@@ -228,6 +228,21 @@ async function route(ctx,path,data){
    const token=random(),hash=await sha(token),id=uid();
    await db.batch([query(db,`UPDATE member_invites SET revoked_at=? WHERE member_id=? AND consumed_at IS NULL AND revoked_at IS NULL`,now(),mid),query(db,`INSERT INTO member_invites(id,member_id,token_sha256,expires_at,created_by,created_at) VALUES(?,?,?,?,?,?)`,id,mid,hash,expAt(72),actor.id,now()),audit(db,actor,'issue_invite','member',mid)]);
    return json({ok:true,inviteUrl:new URL('/?invite='+token,req.url).href,expiresAt:expAt(72)});
+ }
+ if(path==='admin/line-unlink'&&method==='POST'){
+   if(!requireOwner(actor))return fail('オーナーのみ操作できます',403);
+   const mid=field(data.memberId,100);
+   if(data.confirm!=='LINE連携解除')return fail('確認操作が完了していません',400);
+   const member=await one(db,'SELECT id,line_subject FROM members WHERE id=?',mid);
+   if(!member||!member.line_subject)return fail('LINE連携済みの会員が見つかりません',409);
+   const when=now();
+   await db.batch([
+     query(db,'UPDATE members SET line_subject=NULL,updated_at=? WHERE id=? AND line_subject=?',when,mid,member.line_subject),
+     query(db,"DELETE FROM auth_sessions WHERE user_type='member' AND user_id=?",mid),
+     query(db,"UPDATE member_invites SET revoked_at=? WHERE member_id=? AND consumed_at IS NULL AND revoked_at IS NULL",when,mid),
+     audit(db,actor,'unlink_line_login','member',mid)
+   ]);
+   return json({ok:true});
  }
  if(path==='admin/slots'&&method==='POST'){
    if(!requireAdmin(actor))return fail('操作権限がありません',403);
