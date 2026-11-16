@@ -20,7 +20,7 @@ const badge=(t)=>`<span class="label">${h(t)}</span>`;
 const nav=admin?[['home','⌂','ホーム'],['booking','▣','予約管理'],['members','♙','会員管理'],['tickets','▤','チケット管理'],['settings','⚙','設定']]:[['home','⌂','ホーム'],['booking','▣','予約'],['tickets','▤','チケット'],['profile','◉','マイページ']];
 function content(html,subtitle=''){
  const title=admin?'MANAGEMENT':'MEMBERSHIP';
- root.innerHTML=`<div class="app"><header class="mast"><span class="logo-mark">SR</span><div class="brand"><strong>SHIFTREX</strong><small>${title}</small></div><span class="secure-tag">${view.auth?.authenticated?'● 接続中':'● セキュア'}</span></header><main class="surface"><div class="greeting">${subtitle?`<div class="eyebrow">${h(subtitle)}</div>`:''}</div>${view.error?`<div class="alert alert-error" role="alert">${h(view.error)}</div>`:''}${view.success?`<div class="alert alert-good" role="status">${h(view.success)}</div>`:''}${html}<footer class="foot">© SHIFTREX · CLOUD DATABASE</footer></main>${view.auth?.authenticated?`<div class="nav-shell"><nav class="tabbar">${nav.map(([id,ico,label])=>`<button class="tab ${view.tab===id?'active':''}" data-tab="${id}"><span class="tabicon">${ico}</span><span>${label}</span></button>`).join('')}</nav></div>`:''}${view.modal?`<div class="overlay"><div class="modal" role="dialog" aria-modal="true">${view.modal}</div></div>`:''}</div>`;
+ root.innerHTML=`<div class="app"><header class="mast"><span class="logo-mark">SR</span><div class="brand"><strong>SHIFTREX</strong><small>${title}</small></div>${view.auth?.authenticated?'<button type="button" class="refresh-button" data-action="refresh-now" aria-label="最新情報に更新" title="最新情報に更新"><span class="refresh-glyph" aria-hidden="true">↻</span><span>更新</span></button>':''}<span class="secure-tag">${view.auth?.authenticated?'● 接続中':'● セキュア'}</span></header><main class="surface"><div class="greeting">${subtitle?`<div class="eyebrow">${h(subtitle)}</div>`:''}</div>${view.error?`<div class="alert alert-error" role="alert">${h(view.error)}</div>`:''}${view.success?`<div class="alert alert-good" role="status">${h(view.success)}</div>`:''}${html}<footer class="foot">© SHIFTREX · CLOUD DATABASE</footer></main>${view.auth?.authenticated?`<div class="nav-shell"><nav class="tabbar">${nav.map(([id,ico,label])=>`<button class="tab ${view.tab===id?'active':''}" data-tab="${id}"><span class="tabicon">${ico}</span><span>${label}</span></button>`).join('')}</nav></div>`:''}${view.modal?`<div class="overlay"><div class="modal" role="dialog" aria-modal="true">${view.modal}</div></div>`:''}</div>`;
  renderTotpSetup();
 }
 const errText=e=>e instanceof Error?e.message:String(e);
@@ -84,7 +84,7 @@ function render(){liveRenderPending=false;if(!view.auth){disabled(view.error||'�
 async function load(){try{const auth=await api('auth/me');const correctRole=auth.authenticated&&auth.user?.type===(admin?'staff':'member');view.auth=correctRole?auth:{...auth,authenticated:false,user:null};if(!(!admin&&new URLSearchParams(location.search).has('login')))view.error='';if(correctRole){view.data=await api(admin?'admin/state':'member/state');}else view.data=null;render();}catch(e){view.auth=null;disabled(errText(e));}}
 
 /* Live data sync: only while the app is visible, with no disruptive page reload. */
-let liveSyncBusy=false,liveRenderPending=false,liveRevision=undefined;
+let liveSyncPromise=null,liveRenderPending=false,liveRevision=undefined,refreshing=false,refreshToastTimer=null;
 const dirtyForms=new WeakSet();
 function liveCanRender(){
  if(view.busy||view.modal||view.challenge)return false;
@@ -98,29 +98,68 @@ function liveApplyPending(){
  render();
  window.scrollTo(0,scrollY);
 }
-async function liveSync(){
- if(document.hidden||liveSyncBusy||view.busy)return;
- liveSyncBusy=true;
- try{
-   if(!view.auth){await load();return;}
-   if(!view.auth.authenticated||!view.data)return;
-   const revision=await api('revision');
-   if(view.busy||!view.auth?.authenticated)return;
-   if(liveRevision===revision.revision)return;
-   const next=await api(admin?'admin/state':'member/state');
-   if(view.busy||!view.auth?.authenticated)return;
-   liveRevision=revision.revision;
-   if(JSON.stringify(next)!==JSON.stringify(view.data)){
-     view.data=next;
-     liveRenderPending=true;
-     liveApplyPending();
+async function liveSync(force=false){
+ if((document.hidden&&!force)||view.busy)return false;
+ if(liveSyncPromise){
+   if(!force)return false;
+   try{await liveSyncPromise;}catch{}
+ }
+ if(view.busy)return false;
+ const task=(async()=>{
+   try{
+     if(!view.auth){await load();return true;}
+     if(!view.auth.authenticated||!view.data)return false;
+     let revision;
+     if(!force){
+       revision=await api('revision');
+       if(view.busy||!view.auth?.authenticated)return false;
+       if(liveRevision===revision.revision)return true;
+     }
+     const next=await api(admin?'admin/state':'member/state');
+     if(view.busy||!view.auth?.authenticated)return false;
+     liveRevision=force?undefined:revision.revision;
+     if(JSON.stringify(next)!==JSON.stringify(view.data)){
+       view.data=next;
+       liveRenderPending=true;
+       liveApplyPending();
+     }
+     return true;
+   }catch(error){
+     if(error.status===401&&!view.busy){await load();return false;}
+     if(force)throw error;
+     return false;
    }
- }catch(error){
-   if(error.status===401&&!view.busy)await load();
- }finally{liveSyncBusy=false;}
+ })();
+ liveSyncPromise=task;
+ try{return await task;}finally{if(liveSyncPromise===task)liveSyncPromise=null;}
+}
+function showRefreshMessage(message,error=false){
+ let toast=document.querySelector('.refresh-toast');
+ if(!toast){toast=document.createElement('div');toast.className='refresh-toast';toast.setAttribute('role','status');document.body.appendChild(toast);}
+ toast.textContent=message;
+ toast.classList.toggle('error',error);
+ if(refreshToastTimer)clearTimeout(refreshToastTimer);
+ refreshToastTimer=setTimeout(()=>toast.remove(),2400);
+}
+function updateRefreshButton(){
+ const button=root.querySelector('[data-action="refresh-now"]');
+ if(!button)return;
+ button.disabled=refreshing;
+ button.classList.toggle('is-refreshing',refreshing);
+ button.setAttribute('aria-busy',String(refreshing));
+}
+async function refreshNow(){
+ if(refreshing||view.busy)return;
+ refreshing=true;
+ updateRefreshButton();
+ try{
+   const ok=await liveSync(true);
+   showRefreshMessage(ok?'最新情報に更新しました':'更新できませんでした。再度お試しください',!ok);
+ }catch(error){showRefreshMessage(errText(error),true);}
+ finally{refreshing=false;updateRefreshButton();}
 }
 const startLiveSync=()=>{liveSync().catch(()=>{});};
-setInterval(startLiveSync,5000);
+setInterval(startLiveSync,10000);
 window.addEventListener('focus',startLiveSync);
 window.addEventListener('pageshow',startLiveSync);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)startLiveSync();});
@@ -132,6 +171,7 @@ async function mutate(path,data,msg){view.error='';view.success='';try{await api
 function modal(title,body){view.modal=`<h2>${h(title)}</h2>${body}<button class="button ghost" data-action="close">閉じる</button>`;render();}
 async function action(name,id){
  if(name==='refresh'){await load();return;}
+ if(name==='refresh-now'){await refreshNow();return;}
  if(name==='cancel-otp'){view.challenge='';view.totpSetup=null;render();return;}
  if(name==='copy-totp'){try{await navigator.clipboard.writeText(view.totpSetup?.secret||'');notice('設定キーをコピーしました');}catch(e){notice('コピーできません。設定キーを長押ししてコピーしてください',true);}return;}
  if(name==='close'){view.modal=null;render();return;}
