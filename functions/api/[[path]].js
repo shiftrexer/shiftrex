@@ -105,7 +105,7 @@ async function memberState(db,actor){
  list(db,`SELECT s.id,s.starts_at,s.ends_at,s.mode,s.enabled,CASE WHEN EXISTS(SELECT 1 FROM booking_locks l WHERE l.block_start=substr(s.starts_at,1,16)) THEN 1 ELSE 0 END AS booked
  FROM booking_slots s JOIN published_months p ON p.month_key=substr(s.starts_at,1,7)
  WHERE s.starts_at>=? AND s.starts_at<? ORDER BY s.starts_at LIMIT 1000`,jstDay(),new Date(Date.now()+95*86400000).toISOString().slice(0,10)),
- list(db,`SELECT r.id,r.status,r.slot_id,r.decline_reason,s.starts_at FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id WHERE r.member_id=? ORDER BY s.starts_at DESC LIMIT 150`,actor.id),
+ list(db,`SELECT r.id,r.status,r.slot_id,r.decline_reason,r.created_at,s.starts_at FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id WHERE r.member_id=? ORDER BY r.created_at DESC,s.starts_at DESC,r.id DESC LIMIT 150`,actor.id),
  list(db,`SELECT t.id,t.initial_count,t.available_count,t.valid_from,t.expires_on FROM tickets t WHERE t.member_id=? AND t.disabled_at IS NULL ORDER BY COALESCE(t.expires_on,'9999') LIMIT 100`,actor.id),
  list(db,`SELECT id,title,body,published_at FROM notices WHERE deleted_at IS NULL AND published_at IS NOT NULL AND published_at<=? AND (audience='all' OR id IN(SELECT notice_id FROM notice_recipients WHERE member_id=?)) ORDER BY published_at DESC LIMIT 30`,now(),actor.id)
  ]);
