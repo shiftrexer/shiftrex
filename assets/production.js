@@ -84,7 +84,7 @@ function render(){liveRenderPending=false;if(!view.auth){disabled(view.error||'æ
 async function load(){try{const auth=await api('auth/me');const correctRole=auth.authenticated&&auth.user?.type===(admin?'staff':'member');view.auth=correctRole?auth:{...auth,authenticated:false,user:null};if(!(!admin&&new URLSearchParams(location.search).has('login')))view.error='';if(correctRole){view.data=await api(admin?'admin/state':'member/state');}else view.data=null;render();}catch(e){view.auth=null;disabled(errText(e));}}
 
 /* Live data sync: only while the app is visible, with no disruptive page reload. */
-let liveSyncBusy=false,liveRenderPending=false;
+let liveSyncBusy=false,liveRenderPending=false,liveRevision=undefined;
 const dirtyForms=new WeakSet();
 function liveCanRender(){
  if(view.busy||view.modal||view.challenge)return false;
@@ -104,8 +104,12 @@ async function liveSync(){
  try{
    if(!view.auth){await load();return;}
    if(!view.auth.authenticated||!view.data)return;
+   const revision=await api('revision');
+   if(view.busy||!view.auth?.authenticated)return;
+   if(liveRevision===revision.revision)return;
    const next=await api(admin?'admin/state':'member/state');
    if(view.busy||!view.auth?.authenticated)return;
+   liveRevision=revision.revision;
    if(JSON.stringify(next)!==JSON.stringify(view.data)){
      view.data=next;
      liveRenderPending=true;
@@ -116,10 +120,11 @@ async function liveSync(){
  }finally{liveSyncBusy=false;}
 }
 const startLiveSync=()=>{liveSync().catch(()=>{});};
-setInterval(startLiveSync,20000);
+setInterval(startLiveSync,5000);
 window.addEventListener('focus',startLiveSync);
 window.addEventListener('pageshow',startLiveSync);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)startLiveSync();});
+window.addEventListener('online',startLiveSync);
 document.addEventListener('input',event=>{const form=event.target.closest?.('form[data-form]');if(form)dirtyForms.add(form);});
 document.addEventListener('change',event=>{const form=event.target.closest?.('form[data-form]');if(form)dirtyForms.add(form);});
 document.addEventListener('focusout',()=>{setTimeout(liveApplyPending,0);});
