@@ -31,9 +31,9 @@
 .week-mover{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
 .week-mover strong{font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
 .week-mover button{color:#fff;border:0;background:#272c34;border-radius:9px;min-width:30px;height:35px;font-size:24px;line-height:1}
-.week-scroll{width:100%;max-height:none;overflow:visible;border-radius:11px;border:1px solid #343a44}
-.week-grid{display:grid;grid-template-columns:40px repeat(7,minmax(0,1fr));grid-template-rows:43px;grid-auto-rows:36px;width:100%;min-width:0;background:#111419}
-.week-date{background:#252b34;border-right:1px solid #383e47;border-bottom:1px solid #4b515c;text-align:center}
+.week-scroll{width:100%;max-width:100%;min-width:0;max-height:none;overflow:hidden;border-radius:11px;border:1px solid #343a44;background:#343a44;box-sizing:border-box}
+.week-grid{display:grid;grid-template-columns:40px repeat(7,minmax(0,1fr));grid-template-rows:43px;grid-auto-rows:36px;gap:1px;width:100%;min-width:0;max-width:100%;background:#343a44;box-sizing:border-box}
+.week-date{min-width:0;background:#252b34;text-align:center}
 .week-date button{color:#f0f1f3;border:0;background:transparent;width:100%;height:100%;display:flex;justify-content:center;align-items:center;flex-direction:column;gap:3px;padding:2px}
 .week-date button span{font-size:11px;color:#bfc4cc}
 .week-date button strong{font-size:15px}
@@ -41,9 +41,9 @@
 .week-date.sun button span{color:#f3a1aa}
 .week-date.selected{background:#39404c}
 .week-date.current button strong{box-shadow:inset 0 -2px 0 #56d49d}
-.week-time{background:#232830;display:flex;align-items:center;justify-content:center;border-right:1px solid #434a56;border-bottom:1px solid #343a44;font-size:11px;font-weight:650;color:#f0f1f3;font-variant-numeric:tabular-nums}
+.week-time{min-width:0;background:#232830;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:650;color:#f0f1f3;font-variant-numeric:tabular-nums}
 .week-time.week-corner{background:#2c323a}
-.week-cell{min-width:0;background:#171b21;border-right:1px solid #343a44;border-bottom:1px solid #343a44;display:flex;align-items:center;justify-content:center;padding:0}
+.week-cell{min-width:0;background:#171b21;display:flex;align-items:center;justify-content:center;padding:0}
 .week-cell.selected{background:#212731}
 .week-state{display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-height:0;font-size:21px;line-height:1;border:0;background:transparent;font-weight:600}
 .week-state.bookable{cursor:pointer;border-radius:6px}
