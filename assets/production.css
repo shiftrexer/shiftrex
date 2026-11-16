@@ -19,6 +19,8 @@
 /* Monthly-to-weekly booking matrix */
 .calendar-hint{font-size:12px;color:var(--muted);line-height:1.6;margin:10px 0 15px}
 .calendar-grid .day{position:relative;min-height:44px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px}
+.calendar-grid>span:first-child{color:#f6a4a4}
+.calendar-grid>span:nth-child(7){color:#87b8fb}
 .calendar-grid .day.saturday{color:#87b8fb}
 .calendar-grid .day.sunday{color:#f6a4a4}
 .calendar-grid .day.picked{background:#fff;color:#111}
