@@ -64,6 +64,48 @@ function homeMember(){const s=view.data;const next=s.bookings.filter(b=>b.status
 }
 const dateShift=(day,delta)=>{const t=new Date(day+'T12:00:00Z');t.setUTCDate(t.getUTCDate()+delta);return t.toISOString().slice(0,10);};
 const sundayOf=day=>{const dow=new Date(day+'T12:00:00Z').getUTCDay();return dateShift(day,-dow);};
+/* Official Cabinet Office national holidays and legal holidays, published through 2027.
+ * Source: https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html
+ * '休日' includes substitute holidays and citizens' holidays. Future unpublished years must not be guessed. */
+const japanHolidays=Object.freeze({
+ "2026-01-01": "元日",
+ "2026-01-12": "成人の日",
+ "2026-02-11": "建国記念の日",
+ "2026-02-23": "天皇誕生日",
+ "2026-03-20": "春分の日",
+ "2026-04-29": "昭和の日",
+ "2026-05-03": "憲法記念日",
+ "2026-05-04": "みどりの日",
+ "2026-05-05": "こどもの日",
+ "2026-05-06": "休日",
+ "2026-07-20": "海の日",
+ "2026-08-11": "山の日",
+ "2026-09-21": "敬老の日",
+ "2026-09-22": "休日",
+ "2026-09-23": "秋分の日",
+ "2026-10-12": "スポーツの日",
+ "2026-11-03": "文化の日",
+ "2026-11-23": "勤労感謝の日",
+ "2027-01-01": "元日",
+ "2027-01-11": "成人の日",
+ "2027-02-11": "建国記念の日",
+ "2027-02-23": "天皇誕生日",
+ "2027-03-21": "春分の日",
+ "2027-03-22": "休日",
+ "2027-04-29": "昭和の日",
+ "2027-05-03": "憲法記念日",
+ "2027-05-04": "みどりの日",
+ "2027-05-05": "こどもの日",
+ "2027-07-19": "海の日",
+ "2027-08-11": "山の日",
+ "2027-09-20": "敬老の日",
+ "2027-09-23": "秋分の日",
+ "2027-10-11": "スポーツの日",
+ "2027-11-03": "文化の日",
+ "2027-11-23": "勤労感謝の日"
+});
+const holidayName=day=>japanHolidays[day]||'';
+
 function memberBookings(){
  const s=view.data;
  if(!view.selectedDay)view.selectedDay=today();
@@ -77,8 +119,9 @@ function memberBookings(){
    const cells=Array.from({length:startDay},()=>'<span class="month-spacer" aria-hidden="true"></span>').concat(days.map(day=>{
      const available=s.slots.some(slot=>slot.starts_at.slice(0,10)===day&&canBook(slot));
      const dow=new Date(day+'T12:00:00Z').getUTCDay();
-     const classes=[day===today()?'today':'',day===view.selectedDay?'picked':'',available?'available':'',dow===0?'sunday':dow===6?'saturday':''].filter(Boolean).join(' ');
-     return `<button type="button" class="day ${classes}" data-day="${day}" aria-label="${h(day)}の週を表示">${Number(day.slice(-2))}${available?'<span class="month-dot"></span>':''}</button>`;
+     const holiday=holidayName(day);
+     const classes=[day===today()?'today':'',day===view.selectedDay?'picked':'',available?'available':'',dow===0?'sunday':dow===6?'saturday':'',holiday?'holiday':''].filter(Boolean).join(' ');
+     return `<button type="button" class="day ${classes}" data-day="${day}" aria-label="${h(day)}${holiday?"（"+h(holiday)+"）":""}の週を表示" ${holiday?`title="${h(holiday)}"`:""}>${Number(day.slice(-2))}${available?'<span class="month-dot"></span>':''}</button>`;
    })).join('');
    const calendar=`<div class="calendar-head"><button type="button" data-action="prev-month" aria-label="前月">‹</button><strong>${h(view.monthView.slice(0,4))}年 ${Number(view.monthView.slice(5,7))}月</strong><button type="button" data-action="next-month" aria-label="翌月">›</button></div><p class="calendar-hint">日付を押すと、その週の空き状況が表示されます。</p><div class="calendar-grid"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>${cells}</div><div class="booking-legend"><span><b>●</b> 予約可能日</span></div>`;
    content(heading('予約','月間カレンダーから日付を選択してください')+block('月間カレンダー',calendar)+history,'会員専用予約');
@@ -101,7 +144,7 @@ function memberBookings(){
    if(!slotMap.has(key)||(!canBook(slotMap.get(key))&&canBook(slot)))slotMap.set(key,slot);
  }
  const ownBooking=new Map(s.bookings.filter(b=>['pending','confirmed','done','absent'].includes(b.status)).map(b=>[b.slot_id,b]));
- const headingDays=weekDays.map((day,index)=>`<div class="week-date ${index===0?'sun':index===6?'sat':''} ${day===view.selectedDay?'selected':''} ${day===today()?'current':''}" role="columnheader"><button type="button" data-week-day="${day}" aria-label="${h(day)}を選択" ${day===view.selectedDay?'aria-current="date"':''}><span>${['日','月','火','水','木','金','土'][index]}</span><strong>${Number(day.slice(-2))}</strong></button></div>`).join('');
+ const headingDays=weekDays.map((day,index)=>{const holiday=holidayName(day);return `<div class="week-date ${index===0?'sun':index===6?'sat':''} ${holiday?'holiday':''} ${day===view.selectedDay?'selected':''} ${day===today()?'current':''}" role="columnheader"><button type="button" data-week-day="${day}" aria-label="${h(day)}${holiday?'（'+h(holiday)+'）':''}を選択" ${holiday?`title="${h(holiday)}"`:''} ${day===view.selectedDay?'aria-current="date"':''}><span>${['日','月','火','水','木','金','土'][index]}</span><strong>${Number(day.slice(-2))}</strong></button></div>`;}).join('');
  const rows=times.map(time=>{
    const cells=weekDays.map(day=>{
      const slot=slotMap.get(day+'T'+time),own=slot?ownBooking.get(slot.id):null;
