@@ -32,8 +32,8 @@ let reused=await request('auth/admin/login',{email:'owner@example.com',passwordV
 reused=await request('auth/admin/verify',{challengeId:reused.obj.challengeId,code});assert.equal(reused.response.status,401,JSON.stringify(reused.obj));
 r=await request('revision',{},'', 'GET');assert.equal(r.response.status,401,'revision must require login');
 r=await request('revision',{},staffCookie,'GET');assert.equal(r.response.status,200);const revisionBefore=r.obj.revision;
-r=await request('admin/members',{name:'テスト会員',kana:'テストカイイン'},staffCookie);
-r=await request('revision',{},staffCookie,'GET');assert.equal(r.response.status,200);assert.notEqual(r.obj.revision,revisionBefore,'new member must change revision');assert.equal(r.response.status,200,JSON.stringify(r.obj));const mid=r.obj.id;
+r=await request('admin/members',{name:'テスト会員',kana:'テストカイイン'},staffCookie);assert.equal(r.response.status,200,JSON.stringify(r.obj));const mid=r.obj.id;
+r=await request('revision',{},staffCookie,'GET');assert.equal(r.response.status,200);assert.notEqual(r.obj.revision,revisionBefore,'new member must change revision');
 r=await request('admin/menus',{name:'8回券',price:52800,count:8,days:70,monthRequired:false},staffCookie);assert.equal(r.response.status,200,JSON.stringify(r.obj));const menuId=r.obj.id;
 r=await request('admin/purchases',{memberId:mid,menuId,price:52800,date:'2026-11-20'},staffCookie);assert.equal(r.response.status,200,JSON.stringify(r.obj));const purchaseId=r.obj.id;
 r=await request('admin/payments',{purchaseId,amount:52800,method:'現金',date:'2026-11-20'},staffCookie);assert.equal(r.response.status,200,JSON.stringify(r.obj));
@@ -56,6 +56,18 @@ assert.equal(native.prepare('SELECT available_count FROM tickets').get().availab
 r=await request('admin/cancel-booking',{id:firstBooking,returnTicket:true},staffCookie);
 assert.equal(r.response.status,409,JSON.stringify(r.obj));
 assert.equal(native.prepare('SELECT available_count FROM tickets').get().available_count,8);
+
+r=await request('admin/slots',{date:'2026-11-26',time:'10:00',mode:'approval'},staffCookie);
+assert.equal(r.response.status,200,JSON.stringify(r.obj));const approvalSlot=r.obj.id;
+r=await request('member/bookings',{slotId:approvalSlot},memberCookie);
+assert.equal(r.response.status,200,JSON.stringify(r.obj));assert.equal(r.obj.status,'pending');
+const approvalBooking=r.obj.id;
+assert.equal(native.prepare('SELECT available_count FROM tickets').get().available_count,8,'pending must not consume ticket');
+r=await request('admin/state',{},staffCookie,'GET');assert.ok(r.obj.requests.some(b=>b.id===approvalBooking&&b.status==='pending'));
+r=await request('admin/decision',{id:approvalBooking,decision:'approve'},staffCookie);
+assert.equal(r.response.status,200,JSON.stringify(r.obj));
+assert.equal(native.prepare('SELECT available_count FROM tickets').get().available_count,7,'approval must consume ticket');
+r=await request('member/state',{},memberCookie,'GET');assert.ok(r.obj.bookings.some(b=>b.id===approvalBooking&&b.status==='confirmed'));
 r=await request('admin/state',{},staffCookie,'GET');assert.equal(r.obj.members.find(m=>m.id===mid)?.line_linked,1);
 r=await request('admin/line-unlink',{memberId:mid,confirm:'LINE連携解除'},staffCookie);assert.equal(r.response.status,200,JSON.stringify(r.obj));
 r=await request('member/state',{},memberCookie,'GET');assert.equal(r.response.status,401,'previous LINE session must be revoked');
