@@ -91,3 +91,24 @@
 .mast-member .mast-page-title{font-size:22px;line-height:1.25;font-weight:800;letter-spacing:.01em;margin:0;color:var(--text);min-width:0}
 .member-intro{margin:7px 0 20px}
 .member-intro p{margin:0;font-size:14px;line-height:1.65;color:var(--muted)}
+
+/* Keep the member header independent of document scroll and iOS rubber-band pull. */
+body[data-app="member"] .mast-member{
+ position:fixed;
+ top:0;
+ left:50%;
+ width:min(100%,560px);
+ max-width:560px;
+ transform:translateX(-50%);
+ z-index:25;
+ background:#08090b;
+ backdrop-filter:none;
+ -webkit-backdrop-filter:none;
+}
+body[data-app="member"] .mast-member + .surface{padding-top:90px}
+body[data-app="member"] .mast-member .mast-page-title{
+ font-size:26px;
+ line-height:1.2;
+ font-weight:800;
+}
+body[data-app="member"]{overscroll-behavior-y:none}
