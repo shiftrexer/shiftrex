@@ -22,9 +22,10 @@ function content(html,subtitle=''){
  const title=admin?'MANAGEMENT':'MEMBERSHIP';
  const memberAuthed=!admin&&!!view.auth?.authenticated;
  const refreshButton=view.auth?.authenticated?'<button type="button" class="refresh-button" data-action="refresh-now" aria-label="最新情報に更新" title="最新情報に更新"><span class="refresh-glyph" aria-hidden="true">↻</span><span>更新</span></button>':'';
- const mastBody=memberAuthed?`<h1 class="mast-page-title">${h(nav.find(([tab])=>tab===view.tab)?.[2]||'ホーム')}</h1>${refreshButton}`:`<span class="logo-mark">SR</span><div class="brand"><strong>SHIFTREX</strong><small>${title}</small></div>${refreshButton}<span class="secure-tag">${view.auth?.authenticated?'● 接続中':'● セキュア'}</span>`;
+ const bellButton='<button type="button" class="bell-button" data-action="view-notices" aria-label="お知らせを表示" title="お知らせ"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></button>';
+ const mastBody=memberAuthed?`<h1 class="mast-page-title">${h(nav.find(([tab])=>tab===view.tab)?.[2]||'ホーム')}</h1><div class="member-header-actions">${refreshButton}${bellButton}</div>`:`<span class="logo-mark">SR</span><div class="brand"><strong>SHIFTREX</strong><small>${title}</small></div>${refreshButton}<span class="secure-tag">${view.auth?.authenticated?'● 接続中':'● セキュア'}</span>`;
  const greeting=(!admin&&view.tab==='booking')?'':(subtitle?`<div class="eyebrow">${h(subtitle)}</div>`:'');
- root.innerHTML=`<div class="app"><header class="mast ${memberAuthed?'mast-member':''}">${mastBody}</header><main class="surface"><div class="greeting">${greeting}</div>${view.error?`<div class="alert alert-error" role="alert">${h(view.error)}</div>`:''}${view.success?`<div class="alert alert-good" role="status">${h(view.success)}</div>`:''}${html}<footer class="foot">© SHIFTREX · CLOUD DATABASE</footer></main>${view.auth?.authenticated?`<div class="nav-shell">${!admin?'<div class="nav-shield" aria-hidden="true"></div>':''}<nav class="tabbar">${nav.map(([id,ico,label])=>`<button class="tab ${view.tab===id?'active':''}" data-tab="${id}"><span class="tabicon">${ico}</span><span>${label}</span></button>`).join('')}</nav></div>`:''}${view.modal?`<div class="overlay"><div class="modal" role="dialog" aria-modal="true">${view.modalError?`<div class="alert alert-error" role="alert">${h(view.modalError)}</div>`:''}${view.modal}</div></div>`:''}</div>`;
+ root.innerHTML=`<div class="app"><header class="mast ${memberAuthed?'mast-member':''}">${mastBody}</header><main class="surface"><div class="greeting">${greeting}</div>${view.error?`<div class="alert alert-error" role="alert">${h(view.error)}</div>`:''}${view.success?`<div class="alert alert-good" role="status">${h(view.success)}</div>`:''}${html}${admin?'<footer class="foot">© SHIFTREX · CLOUD DATABASE</footer>':''}</main>${view.auth?.authenticated?`<div class="nav-shell">${!admin?'<div class="nav-shield" aria-hidden="true"></div>':''}<nav class="tabbar">${nav.map(([id,ico,label])=>`<button class="tab ${view.tab===id?'active':''}" data-tab="${id}"><span class="tabicon">${ico}</span><span>${label}</span></button>`).join('')}</nav></div>`:''}${view.modal?`<div class="overlay"><div class="modal" role="dialog" aria-modal="true">${view.modalError?`<div class="alert alert-error" role="alert">${h(view.modalError)}</div>`:''}${view.modal}</div></div>`:''}</div>`;
  renderTotpSetup();
 }
 const errText=e=>e instanceof Error?e.message:String(e);
@@ -62,9 +63,7 @@ function heading(title,subtitle){if(!admin)return subtitle?`<div class="heading 
 function block(title,body,other=''){return `<section class="panel"><div class="panel-head"><h2>${h(title)}</h2>${other}</div>${body}</section>`;}
 const rRow=(title,subtitle,right)=>`<div class="line-item"><div class="line-text"><strong>${h(title)}</strong>${subtitle?`<small>${h(subtitle)}</small>`:''}</div>${right||''}</div>`;
 function homeMember(){const s=view.data;const next=s.bookings.filter(b=>b.status==='confirmed'&&b.starts_at>=today()).sort((a,b)=>a.starts_at.localeCompare(b.starts_at))[0];const count=s.tickets.reduce((x,t)=>x+t.available_count,0);
- content(heading('ホーム',`${s.member.name} 様`)+`<div class="metrics"><div class="metric"><small>チケット残数</small><strong>${count}<span>回</span></strong></div><div class="metric"><small>次回予約</small><strong class="smaller">${next?h(next.starts_at.slice(5,16).replace('T',' ')):'予約なし'}</strong></div></div>`+
- block('次回のセッション',next?rRow(fmt(next.starts_at),'60分・マンツーマン',stat(next.status)):'<div class="empty">確定した予約はありません。</div>')+
- block('お知らせ',s.notices.length?s.notices.slice(0,5).map(n=>rRow(n.title,n.body)).join(''):'<div class="empty">新しいお知らせはありません。</div>'),s.member.name);
+ content(`<div class="member-welcome"><strong>${h(s.member.name)} 様</strong></div><div class="metrics"><div class="metric"><small>チケット残数</small><strong>${count}<span>回</span></strong></div><div class="metric"><small>次回予約</small><strong class="smaller">${next?h(next.starts_at.slice(5,16).replace('T',' ')):'予約なし'}</strong></div></div>`);
 }
 const dateShift=(day,delta)=>{const t=new Date(day+'T12:00:00Z');t.setUTCDate(t.getUTCDate()+delta);return t.toISOString().slice(0,10);};
 const sundayOf=day=>{const dow=new Date(day+'T12:00:00Z').getUTCDay();return dateShift(day,-dow);};
@@ -225,6 +224,12 @@ function modal(title,body){view.modalError='';view.modal=`<h2>${h(title)}</h2>${
 async function action(name,id){
  if(name==='refresh'){await load();return;}
  if(name==='refresh-now'){await refreshNow();return;}
+ if(name==='view-notices'&&!admin){
+   const notices=view.data?.notices||[];
+   const body=notices.length?notices.map(n=>`<article class="notice-entry"><h3>${h(n.title)}</h3>${n.published_at?`<time>${h(fmt(n.published_at))}</time>`:''}<p>${h(n.body)}</p></article>`).join(''):'<div class="empty">新しいお知らせはありません。</div>';
+   modal('お知らせ',`<div class="notice-list">${body}</div>`);
+   return;
+ }
  if(name==='cancel-otp'){view.challenge='';view.totpSetup=null;render();return;}
  if(name==='copy-totp'){try{await navigator.clipboard.writeText(view.totpSetup?.secret||'');notice('設定キーをコピーしました');}catch(e){notice('コピーできません。設定キーを長押ししてコピーしてください',true);}return;}
  if(name==='close'){view.modal=null;render();return;}
