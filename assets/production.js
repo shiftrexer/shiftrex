@@ -29,7 +29,7 @@ async function api(path,body){
  if(body!==undefined){options.method='POST';options.headers['content-type']='application/json';options.body=JSON.stringify(body);}
  let response;try{response=await fetch('/api/'+path,options)}catch(e){throw Error('通信に失敗しました。通信環境を確認してください');}
  let data;try{data=await response.json()}catch(e){throw Error('サーバーから正しい応答を受信できませんでした');}
- if(!response.ok)throw Error(data.error||'操作できませんでした');return data;
+ if(!response.ok){const error=Error(data.error||'操作できませんでした');error.status=response.status;throw error;}return data;
 }
 const notice=(msg,isError=false)=>{if(isError){view.error=msg;view.success='';}else{view.success=msg;view.error='';}render();};
 function disabled(error){content(`<section class="auth-card"><span class="logo-large">SR</span><h1>サービス準備中</h1><p>SHIFTREXの本番用データベース、または認証設定が未完了です。</p><div class="alert alert-error">${h(error||'Cloudflareの設定を確認してください')}</div><p class="muted small">安全のため、実際の会員情報や予約を入力できない状態にしています。設定はCloudflare管理画面から行います。</p>${btn('接続を再確認','refresh')}</section>`);}
@@ -80,8 +80,49 @@ function membersAdmin(){const s=view.data;const authorized=s.user.role!=='staff'
 function ticketsAdmin(){const s=view.data;if(s.user.role==='staff'){content(heading('チケット管理')+'<div class="empty">チケット管理権限がありません。</div>');return;}
  content(heading('チケット管理','メニュー・購入・入金・残数の管理')+block('チケットを手動付与',`<form data-form="manual-ticket"><label>会員<select name="memberId" required>${s.members.map(m=>`<option value="${h(m.id)}">${h(m.display_name)}</option>`).join('')}</select></label><label>付与回数<input name="count" type="number" min="1" max="200" value="1" required></label><label>有効開始日<input type="date" name="start" value="${today()}" required></label><label>有効期限（任意）<input type="date" name="end"></label><button class="button main" type="submit">チケットを付与</button></form>`)+block('メニュー登録',`<form data-form="menu"><label>メニュー名<input name="name" required></label><label>定価（税込円）<input name="price" type="number" min="0" value="8000" required></label><label>発行回数（0も可）<input name="count" type="number" min="0" value="1" required></label><label>有効日数（任意）<input name="days" type="number" min="1" placeholder="70"></label><label class="inline-checkbox"><input name="monthRequired" type="checkbox"> 対象月の入力必須</label><button class="button main" type="submit">メニューを追加</button></form>`)+block('購入登録',`<form data-form="purchase"><label>会員<select name="memberId">${s.members.map(m=>`<option value="${h(m.id)}">${h(m.display_name)}</option>`).join('')}</select></label><label>メニュー<select name="menuId" required>${s.menus.map(m=>`<option value="${h(m.id)}">${h(m.name)} / ${money(m.standard_price_yen)}</option>`).join('')}</select></label><label>販売金額<input name="price" type="number" min="0" required value="${s.menus[0]?.standard_price_yen||0}"></label><label>購入日<input name="date" type="date" required value="${today()}"></label><label>対象月（必要な場合）<input name="targetMonth" type="month"></label><button class="button main" type="submit">購入を登録</button></form>`)+block('入金登録',`<form data-form="payment"><label>購入<select name="purchaseId" required>${s.purchases.filter(p=>!p.canceled_at).map(p=>`<option value="${h(p.id)}">${h(s.members.find(m=>m.id===p.member_id)?.display_name||p.member_id)} ・${h(p.menu_name_at_sale)} ${money(p.actual_price_yen)}</option>`).join('')}</select></label><label>入金額<input type="number" min="1" name="amount" required></label><label>入金日<input type="date" name="date" value="${today()}" required></label><label>支払方法<input name="method" value="現金" required></label><button class="button main" type="submit">入金を登録</button></form>`)+block('チケット一覧',s.tickets.map(t=>rRow(s.members.find(m=>m.id===t.member_id)?.display_name||t.member_id,t.valid_from+'〜'+(t.expires_on||'期限なし'),badge(`${t.available_count} / ${t.initial_count} 回`))).join('')||'<div class="empty">まだありません</div>'),'チケット・会計');}
 function settingsAdmin(){const user=view.data.user;content(heading('設定','セキュリティと運用状況')+block('ログイン情報',rRow('担当者',user.name)+rRow('権限',user.role)+btn('ログアウト','logout','ghost'))+block('本番構成',rRow('認証','パスワード・認証アプリ（メール送信なし）',badge('有効'))+rRow('データベース','Cloudflare D1で共有',badge('接続中'))+rRow('LINEログイン','LINE Developersのチャネル設定が必要')+`<p class="muted small">プッシュ通知、バックアップの自動実行・種類別復元、スタッフ招待、会計例外処理などは今後の開発対象です。実装済みと誤認しないよう、利用できない機能は表示していません。</p>`),'オーナー設定');}
-function render(){if(!view.auth){disabled(view.error||'接続を確認中');return;}if(!view.auth.authenticated){loginScreen();return;}if(admin){({home:homeAdmin,booking:bookingsAdmin,members:membersAdmin,tickets:ticketsAdmin,settings:settingsAdmin}[view.tab]||homeAdmin)();}else{({home:homeMember,booking:memberBookings,tickets:ticketsMember,profile:profileMember}[view.tab]||homeMember)();}}
+function render(){liveRenderPending=false;if(!view.auth){disabled(view.error||'接続を確認中');return;}if(!view.auth.authenticated){loginScreen();return;}if(admin){({home:homeAdmin,booking:bookingsAdmin,members:membersAdmin,tickets:ticketsAdmin,settings:settingsAdmin}[view.tab]||homeAdmin)();}else{({home:homeMember,booking:memberBookings,tickets:ticketsMember,profile:profileMember}[view.tab]||homeMember)();}}
 async function load(){try{const auth=await api('auth/me');const correctRole=auth.authenticated&&auth.user?.type===(admin?'staff':'member');view.auth=correctRole?auth:{...auth,authenticated:false,user:null};if(!(!admin&&new URLSearchParams(location.search).has('login')))view.error='';if(correctRole){view.data=await api(admin?'admin/state':'member/state');}else view.data=null;render();}catch(e){view.auth=null;disabled(errText(e));}}
+
+/* Live data sync: only while the app is visible, with no disruptive page reload. */
+let liveSyncBusy=false,liveRenderPending=false;
+const dirtyForms=new WeakSet();
+function liveCanRender(){
+ if(view.busy||view.modal||view.challenge)return false;
+ const active=document.activeElement;
+ if(active&&root.contains(active)&&active.closest('form'))return false;
+ return !Array.from(root.querySelectorAll('form[data-form]')).some(form=>dirtyForms.has(form));
+}
+function liveApplyPending(){
+ if(!liveRenderPending||!liveCanRender())return;
+ const scrollY=window.scrollY;
+ render();
+ window.scrollTo(0,scrollY);
+}
+async function liveSync(){
+ if(document.hidden||liveSyncBusy||view.busy)return;
+ liveSyncBusy=true;
+ try{
+   if(!view.auth){await load();return;}
+   if(!view.auth.authenticated||!view.data)return;
+   const next=await api(admin?'admin/state':'member/state');
+   if(view.busy||!view.auth?.authenticated)return;
+   if(JSON.stringify(next)!==JSON.stringify(view.data)){
+     view.data=next;
+     liveRenderPending=true;
+     liveApplyPending();
+   }
+ }catch(error){
+   if(error.status===401&&!view.busy)await load();
+ }finally{liveSyncBusy=false;}
+}
+const startLiveSync=()=>{liveSync().catch(()=>{});};
+setInterval(startLiveSync,20000);
+window.addEventListener('focus',startLiveSync);
+window.addEventListener('pageshow',startLiveSync);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)startLiveSync();});
+document.addEventListener('input',event=>{const form=event.target.closest?.('form[data-form]');if(form)dirtyForms.add(form);});
+document.addEventListener('change',event=>{const form=event.target.closest?.('form[data-form]');if(form)dirtyForms.add(form);});
+document.addEventListener('focusout',()=>{setTimeout(liveApplyPending,0);});
 async function mutate(path,data,msg){view.error='';view.success='';try{await api(path,data);view.modal=null;await load();if(msg)notice(msg);}catch(e){notice(errText(e),true);}}
 function modal(title,body){view.modal=`<h2>${h(title)}</h2>${body}<button class="button ghost" data-action="close">閉じる</button>`;render();}
 async function action(name,id){
