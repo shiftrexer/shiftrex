@@ -15,3 +15,48 @@
 @media(max-width:420px){.mast .secure-tag{display:none}}
 @media(max-width:360px){.refresh-button{padding:7px 8px}}
 @media(prefers-reduced-motion:reduce){.refresh-button.is-refreshing .refresh-glyph{animation:none}}
+
+/* Monthly-to-weekly booking matrix */
+.calendar-hint{font-size:12px;color:var(--muted);line-height:1.6;margin:10px 0 15px}
+.calendar-grid .day{position:relative;min-height:44px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px}
+.calendar-grid .day.saturday{color:#87b8fb}
+.calendar-grid .day.sunday{color:#f6a4a4}
+.calendar-grid .day.picked{background:#fff;color:#111}
+.calendar-grid .day.today:not(.picked){box-shadow:inset 0 0 0 2px #aab5c3}
+.calendar-grid .month-spacer{min-height:44px}
+.calendar-grid .month-dot{position:absolute;bottom:3px;width:5px;height:5px;border-radius:50%;background:#56d49d}
+.calendar-grid .day.picked .month-dot{background:#22855b}
+.booking-week-controls{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:16px}
+.booking-week-controls>.button{padding:9px 10px;font-size:12px;flex-shrink:0}
+.week-mover{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
+.week-mover strong{font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.week-mover button{color:#fff;border:0;background:#272c34;border-radius:9px;min-width:30px;height:35px;font-size:24px;line-height:1}
+.week-scroll{width:100%;max-height:min(65dvh,630px);overflow:auto;border-radius:11px;border:1px solid #343a44;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.week-grid{display:grid;grid-template-columns:50px repeat(7,minmax(44px,1fr));grid-template-rows:55px;grid-auto-rows:46px;width:100%;min-width:370px;background:#111419}
+.week-date{position:sticky;top:0;z-index:3;background:#252b34;border-right:1px solid #383e47;border-bottom:1px solid #4b515c;text-align:center}
+.week-date button{color:#f0f1f3;border:0;background:transparent;width:100%;height:100%;display:flex;justify-content:center;align-items:center;flex-direction:column;gap:3px;padding:2px}
+.week-date button span{font-size:11px;color:#bfc4cc}
+.week-date button strong{font-size:15px}
+.week-date.sat button span{color:#96bbf5}
+.week-date.sun button span{color:#f3a1aa}
+.week-date.selected{background:#39404c}
+.week-date.current button strong{box-shadow:inset 0 -2px 0 #56d49d}
+.week-time{position:sticky;left:0;z-index:2;background:#232830;display:flex;align-items:center;justify-content:center;border-right:1px solid #434a56;border-bottom:1px solid #343a44;font-size:12px;font-weight:650;color:#f0f1f3;font-variant-numeric:tabular-nums}
+.week-time.week-corner{top:0;z-index:5;background:#2c323a}
+.week-cell{min-width:0;background:#171b21;border-right:1px solid #343a44;border-bottom:1px solid #343a44;display:flex;align-items:center;justify-content:center;padding:3px}
+.week-cell.selected{background:#212731}
+.week-state{display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-height:34px;font-size:22px;line-height:1;border:0;background:transparent;font-weight:600}
+.week-state.bookable{cursor:pointer;border-radius:6px}
+.week-state.bookable.instant{color:#69d9a6}
+.week-state.bookable.approval{color:#f3d18a}
+.week-state.bookable:active{background:#313a44;transform:scale(.94)}
+.week-state.bookable:focus-visible,.week-date button:focus-visible,.week-mover button:focus-visible,.calendar-grid .day:focus-visible{outline:2px solid #fff;outline-offset:-3px}
+.week-state.closed{color:#777f8c;font-weight:400}
+.week-state.none{color:#4f5761;font-size:16px;font-weight:400}
+.week-state.own{color:#eaf1ff;font-size:13px;background:#2a4054;border-radius:6px}
+.week-state.own.pending{background:#493f26;color:#f3d18a}
+.booking-legend{display:flex;flex-wrap:wrap;gap:8px 12px;font-size:11px;color:var(--muted);margin:14px 0 2px}
+.booking-legend b{color:#56d49d;font-weight:900}
+.booking-legend .legend-approval{color:#f3d18a}
+.booking-legend .legend-instant{color:#69d9a6}
+@media(max-width:390px){.booking-week-controls{flex-wrap:wrap}.week-mover{flex:1;justify-content:flex-end}}
