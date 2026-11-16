@@ -117,6 +117,12 @@ async function route(ctx,path,data){
  if(path==='health'&&method==='GET')return json({status:'ready',database:'connected',mode:'production-api'});
  const actor=await session(ctx);
  if(path==='auth/me'&&method==='GET')return json({authenticated:!!actor,user:actor,adminConfigured:!!await one(db,"SELECT id FROM staff_accounts WHERE role='owner' AND status='active' LIMIT 1")});
+ if(path==='revision'&&method==='GET'){
+   if(!actor)return fail('ログインが必要です',401);
+   const latest=await one(db,'SELECT id FROM audit_log ORDER BY rowid DESC LIMIT 1');
+   return json({revision:latest?.id||null});
+ }
+
  if(path==='auth/logout'&&method==='POST'){
    const token=readCookie(req,'sr_session');if(token)await query(db,'DELETE FROM auth_sessions WHERE token_hash=?',await sha(token)).run();
    return json({ok:true},200,{'set-cookie':clearCookie});
