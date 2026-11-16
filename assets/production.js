@@ -1,7 +1,7 @@
 /* SHIFTREX production frontend; all data is fetched from authenticated Pages Functions. */
 (()=>{'use strict';
 const root=document.getElementById('app');const admin=document.body.dataset.app==='admin';
-const view={tab:'home',busy:false,auth:null,data:null,error:'',success:'',challenge:'',totpSetup:null,invite:'',selectedDay:'',monthView:'',pendingId:'',modal:null,calendarMode:'month'};
+const view={tab:'home',busy:false,auth:null,data:null,error:'',success:'',challenge:'',totpSetup:null,invite:'',selectedDay:'',monthView:'',pendingId:'',modal:null,modalError:'',calendarMode:'month'};
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=iso=>iso?String(iso).replace('T',' ').slice(0,16):'—';
 const d=iso=>iso?String(iso).slice(0,10):'—';
@@ -20,7 +20,7 @@ const badge=(t)=>`<span class="label">${h(t)}</span>`;
 const nav=admin?[['home','⌂','ホーム'],['booking','▣','予約管理'],['members','♙','会員管理'],['tickets','▤','チケット管理'],['settings','⚙','設定']]:[['home','⌂','ホーム'],['booking','▣','予約'],['tickets','▤','チケット'],['profile','◉','マイページ']];
 function content(html,subtitle=''){
  const title=admin?'MANAGEMENT':'MEMBERSHIP';
- root.innerHTML=`<div class="app"><header class="mast"><span class="logo-mark">SR</span><div class="brand"><strong>SHIFTREX</strong><small>${title}</small></div>${view.auth?.authenticated?'<button type="button" class="refresh-button" data-action="refresh-now" aria-label="最新情報に更新" title="最新情報に更新"><span class="refresh-glyph" aria-hidden="true">↻</span><span>更新</span></button>':''}<span class="secure-tag">${view.auth?.authenticated?'● 接続中':'● セキュア'}</span></header><main class="surface"><div class="greeting">${subtitle?`<div class="eyebrow">${h(subtitle)}</div>`:''}</div>${view.error?`<div class="alert alert-error" role="alert">${h(view.error)}</div>`:''}${view.success?`<div class="alert alert-good" role="status">${h(view.success)}</div>`:''}${html}<footer class="foot">© SHIFTREX · CLOUD DATABASE</footer></main>${view.auth?.authenticated?`<div class="nav-shell"><nav class="tabbar">${nav.map(([id,ico,label])=>`<button class="tab ${view.tab===id?'active':''}" data-tab="${id}"><span class="tabicon">${ico}</span><span>${label}</span></button>`).join('')}</nav></div>`:''}${view.modal?`<div class="overlay"><div class="modal" role="dialog" aria-modal="true">${view.modal}</div></div>`:''}</div>`;
+ root.innerHTML=`<div class="app"><header class="mast"><span class="logo-mark">SR</span><div class="brand"><strong>SHIFTREX</strong><small>${title}</small></div>${view.auth?.authenticated?'<button type="button" class="refresh-button" data-action="refresh-now" aria-label="最新情報に更新" title="最新情報に更新"><span class="refresh-glyph" aria-hidden="true">↻</span><span>更新</span></button>':''}<span class="secure-tag">${view.auth?.authenticated?'● 接続中':'● セキュア'}</span></header><main class="surface"><div class="greeting">${subtitle?`<div class="eyebrow">${h(subtitle)}</div>`:''}</div>${view.error?`<div class="alert alert-error" role="alert">${h(view.error)}</div>`:''}${view.success?`<div class="alert alert-good" role="status">${h(view.success)}</div>`:''}${html}<footer class="foot">© SHIFTREX · CLOUD DATABASE</footer></main>${view.auth?.authenticated?`<div class="nav-shell"><nav class="tabbar">${nav.map(([id,ico,label])=>`<button class="tab ${view.tab===id?'active':''}" data-tab="${id}"><span class="tabicon">${ico}</span><span>${label}</span></button>`).join('')}</nav></div>`:''}${view.modal?`<div class="overlay"><div class="modal" role="dialog" aria-modal="true">${view.modalError?`<div class="alert alert-error" role="alert">${h(view.modalError)}</div>`:''}${view.modal}</div></div>`:''}</div>`;
  renderTotpSetup();
 }
 const errText=e=>e instanceof Error?e.message:String(e);
@@ -167,8 +167,8 @@ window.addEventListener('online',startLiveSync);
 document.addEventListener('input',event=>{const form=event.target.closest?.('form[data-form]');if(form)dirtyForms.add(form);});
 document.addEventListener('change',event=>{const form=event.target.closest?.('form[data-form]');if(form)dirtyForms.add(form);});
 document.addEventListener('focusout',()=>{setTimeout(liveApplyPending,0);});
-async function mutate(path,data,msg){view.error='';view.success='';try{await api(path,data);view.modal=null;await load();if(msg)notice(msg);}catch(e){notice(errText(e),true);}}
-function modal(title,body){view.modal=`<h2>${h(title)}</h2>${body}<button class="button ghost" data-action="close">閉じる</button>`;render();}
+async function mutate(path,data,msg){view.error='';view.success='';view.modalError='';try{await api(path,data);view.modal=null;await load();if(msg)notice(msg);}catch(e){if(view.modal){view.modalError=errText(e);render();}else notice(errText(e),true);}}
+function modal(title,body){view.modalError='';view.modal=`<h2>${h(title)}</h2>${body}<button class="button ghost" data-action="close">閉じる</button>`;render();}
 async function action(name,id){
  if(name==='refresh'){await load();return;}
  if(name==='refresh-now'){await refreshNow();return;}
@@ -178,8 +178,8 @@ async function action(name,id){
  if(name==='logout'){await mutate('auth/logout',{},'ログアウトしました');view.auth={authenticated:false,adminConfigured:true};view.data=null;view.success='';render();return;}
  if(name==='prev-month'||name==='next-month'){view.monthView=monthOffset(view.monthView,name==='prev-month'?-1:1);view.selectedDay=view.monthView+'-01';render();return;}
  if(name==='month-view'||name==='week-view'){view.calendarMode=name==='month-view'?'month':'week';render();return;}
- if(name==='book'){const slot=view.data.slots.find(x=>x.id===id);if(!slot)return;modal('予約内容の確認',`<p class="muted">${h(fmt(slot.starts_at))} から60分</p><p>${slot.mode==='approval'?'承認申請を送信します。':'即時確定で予約します。'} チケットは予約確定時に消化します。</p><button class="button main" data-action="confirm-book" data-id="${h(id)}">${slot.mode==='approval'?'申請する':'予約を確定'}</button>`);return;}
- if(name==='confirm-book'){await mutate('member/bookings',{slotId:id},'予約の受付処理が完了しました');return;}
+ if(name==='book'){const slot=view.data.slots.find(x=>x.id===id);if(!slot)return notice('予約枠の情報が更新されています。更新ボタンを押してください',true);modal('予約内容の確認',`<p class="muted">${h(fmt(slot.starts_at))} から60分</p><p>${slot.mode==='approval'?'承認申請を送信します。':'即時確定で予約します。'} チケットは予約確定時に消化します。</p><button class="button main" data-action="confirm-book" data-id="${h(id)}">${slot.mode==='approval'?'申請する':'予約を確定'}</button>`);return;}
+ if(name==='confirm-book'){if(view.busy)return;view.busy=true;const button=document.querySelector('[data-action="confirm-book"]');if(button){button.disabled=true;button.textContent='送信中…';}try{await mutate('member/bookings',{slotId:id},'予約の受付処理が完了しました');}finally{view.busy=false;}return;}
  if(name==='withdraw'){await mutate('member/withdraw',{id},'承認待ち申請を取り消しました');return;}
  if(name==='approve'){if(!window.confirm('この予約を承認し、チケットを消化しますか？'))return;await mutate('admin/decision',{id,decision:'approve'},'予約を承認しました');return;}
  if(name==='decline'){modal('予約申請の却下',`<form data-form="decline" data-id="${h(id)}"><label>理由（任意）<textarea name="reason" maxlength="250" rows="3"></textarea></label><button class="button main" type="submit">申請を却下する</button></form>`);return;}
