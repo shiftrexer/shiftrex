@@ -112,3 +112,19 @@ body[data-app="member"] .mast-member .mast-page-title{
  font-weight:800;
 }
 body[data-app="member"]{overscroll-behavior-y:none}
+
+/* Member header actions: refresh button followed by announcement bell. */
+body[data-app="member"] .member-header-actions{display:flex;align-items:center;gap:9px;flex-shrink:0;margin-left:auto}
+body[data-app="member"] .member-header-actions .refresh-button{margin-left:0}
+body[data-app="member"] .bell-button{width:40px;height:40px;padding:0;flex-shrink:0;display:grid;place-items:center;background:#1e2229;color:#fff;border:1px solid #414651;border-radius:11px;cursor:pointer}
+body[data-app="member"] .bell-button:active{background:#30353e}
+body[data-app="member"] .bell-button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+body[data-app="member"] .member-welcome{margin:12px 0 22px}
+body[data-app="member"] .member-welcome strong{display:block;font-size:25px;line-height:1.4;font-weight:800;letter-spacing:-.03em;color:#f5f6f8;overflow-wrap:anywhere}
+body[data-app="member"] .notice-list{display:flex;flex-direction:column}
+body[data-app="member"] .notice-entry{padding:15px 1px;border-bottom:1px solid #363c46}
+body[data-app="member"] .notice-entry:last-child{border-bottom:0}
+body[data-app="member"] .notice-entry h3{margin:0 0 6px;font-size:15px;line-height:1.5}
+body[data-app="member"] .notice-entry time{display:block;color:#a8b0bb;font-size:11px;margin:0 0 7px}
+body[data-app="member"] .notice-entry p{margin:0;font-size:13px;color:#c4cbd5;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:360px){body[data-app="member"] .member-header-actions{gap:6px}body[data-app="member"] .bell-button{width:37px;height:37px}}
