@@ -62,12 +62,61 @@ function homeMember(){const s=view.data;const next=s.bookings.filter(b=>b.status
  block('次回のセッション',next?rRow(fmt(next.starts_at),'60分・マンツーマン',stat(next.status)):'<div class="empty">確定した予約はありません。</div>')+
  block('お知らせ',s.notices.length?s.notices.slice(0,5).map(n=>rRow(n.title,n.body)).join(''):'<div class="empty">新しいお知らせはありません。</div>'),s.member.name);
 }
-function memberBookings(){const s=view.data;if(!view.selectedDay)view.selectedDay=today();if(!view.monthView)view.monthView=view.selectedDay.slice(0,7);
- const days=Array.from({length:new Date(+view.monthView.slice(0,4),+view.monthView.slice(5,7),0).getDate()},(_,i)=>view.monthView+'-'+String(i+1).padStart(2,'0'));const startDay=new Date(days[0]+'T12:00:00Z').getUTCDay();
- const dates=(view.calendarMode==='week'?days.filter(x=>{const base=new Date(view.selectedDay+'T12:00:00Z');const ms=base.getTime()-((base.getUTCDay()+6)%7)*86400000;return Date.parse(x+'T12:00:00Z')>=ms&&Date.parse(x+'T12:00:00Z')<ms+7*86400000;}):days);
- const cells=Array.from({length:view.calendarMode==='month'?(startDay+6)%7:0},()=>'<div></div>').concat(dates.map(x=>`<button class="day ${x===view.selectedDay?'picked':''} ${s.slots.some(z=>z.starts_at.slice(0,10)===x&&z.enabled&&!z.booked)?'available':''}" data-day="${x}">${Number(x.slice(-2))}</button>`)).join('');
- const slots=s.slots.filter(x=>x.starts_at.slice(0,10)===view.selectedDay);
- content(heading('予約','日付と予約枠を選択してください')+block('予約カレンダー',`<div class="calendar-head"><button data-action="prev-month">‹</button><strong>${h(view.monthView.slice(0,4))}年 ${Number(view.monthView.slice(5,7))}月</strong><button data-action="next-month">›</button></div><div class="calendar-tools"><button class="button ${view.calendarMode==='month'?'selected':''}" data-action="month-view">月間</button><button class="button ${view.calendarMode==='week'?'selected':''}" data-action="week-view">週間</button></div><div class="calendar-grid"><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span><span>日</span>${cells}</div>`)+block(`${view.selectedDay} の予約枠`,slots.length?slots.map(slot=>rRow(fmt(slot.starts_at).slice(11),slot.mode==='approval'?'△ 承認制':'○ 即時確定',slot.booked||!slot.enabled?badge('× 受付不可'):`<button class="button slim" data-action="book" data-id="${h(slot.id)}">${slot.mode==='approval'?'申請':'予約'}</button>`)).join(''):'<div class="empty">この日に公開中の予約枠はありません。</div>')+block('予約履歴',s.bookings.length?s.bookings.map(b=>rRow(fmt(b.starts_at),b.status==='pending'?'承認をお待ちください':'60分',`${stat(b.status)}${b.status==='pending'?`<button class="button slim ghost" data-action="withdraw" data-id="${h(b.id)}">取消</button>`:''}`)).join(''):'<div class="empty">予約履歴はありません。</div>'),'会員専用予約');
+const dateShift=(day,delta)=>{const t=new Date(day+'T12:00:00Z');t.setUTCDate(t.getUTCDate()+delta);return t.toISOString().slice(0,10);};
+const mondayOf=day=>{const dow=new Date(day+'T12:00:00Z').getUTCDay();return dateShift(day,-((dow+6)%7));};
+function memberBookings(){
+ const s=view.data;
+ if(!view.selectedDay)view.selectedDay=today();
+ if(!view.monthView)view.monthView=view.selectedDay.slice(0,7);
+ const history=block('予約履歴',s.bookings.length?s.bookings.map(b=>rRow(fmt(b.starts_at),b.status==='pending'?'承認をお待ちください':'60分',`${stat(b.status)}${b.status==='pending'?`<button class="button slim ghost" data-action="withdraw" data-id="${h(b.id)}">取消</button>`:''}`)).join(''):'<div class="empty">予約履歴はありません。</div>');
+ const cutoffMs=Date.now()+3*3600000;
+ const canBook=slot=>!!slot&&!!slot.enabled&&!slot.booked&&Date.parse(slot.starts_at+':00+09:00')>=cutoffMs;
+ if(view.calendarMode!=='week'){
+   const days=Array.from({length:new Date(+view.monthView.slice(0,4),+view.monthView.slice(5,7),0).getDate()},(_,i)=>view.monthView+'-'+String(i+1).padStart(2,'0'));
+   const startDay=new Date(days[0]+'T12:00:00Z').getUTCDay();
+   const cells=Array.from({length:(startDay+6)%7},()=>'<span class="month-spacer" aria-hidden="true"></span>').concat(days.map(day=>{
+     const available=s.slots.some(slot=>slot.starts_at.slice(0,10)===day&&canBook(slot));
+     const dow=new Date(day+'T12:00:00Z').getUTCDay();
+     const classes=[day===today()?'today':'',day===view.selectedDay?'picked':'',available?'available':'',dow===0?'sunday':dow===6?'saturday':''].filter(Boolean).join(' ');
+     return `<button type="button" class="day ${classes}" data-day="${day}" aria-label="${h(day)}の週を表示">${Number(day.slice(-2))}${available?'<span class="month-dot"></span>':''}</button>`;
+   })).join('');
+   const calendar=`<div class="calendar-head"><button type="button" data-action="prev-month" aria-label="前月">‹</button><strong>${h(view.monthView.slice(0,4))}年 ${Number(view.monthView.slice(5,7))}月</strong><button type="button" data-action="next-month" aria-label="翌月">›</button></div><p class="calendar-hint">日付を押すと、その週の空き状況が表示されます。</p><div class="calendar-grid"><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span><span>日</span>${cells}</div><div class="booking-legend"><span><b>●</b> 予約可能日</span></div>`;
+   content(heading('予約','月間カレンダーから日付を選択してください')+block('月間カレンダー',calendar)+history,'会員専用予約');
+   return;
+ }
+ const weekStart=mondayOf(view.selectedDay);
+ const weekDays=Array.from({length:7},(_,i)=>dateShift(weekStart,i));
+ const weekEnd=weekDays[6];
+ const weekSlots=s.slots.filter(slot=>slot.starts_at.slice(0,10)>=weekStart&&slot.starts_at.slice(0,10)<=weekEnd);
+ const timeSlots=weekSlots.map(slot=>slot.starts_at.slice(11,16));
+ const times=[];
+ if(timeSlots.length){
+   const minutes=time=>Number(time.slice(0,2))*60+Number(time.slice(3,5));
+   const min=Math.min(...timeSlots.map(minutes)),max=Math.max(...timeSlots.map(minutes));
+   for(let m=min;m<=max;m+=30)times.push(String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'));
+ }
+ const slotMap=new Map();
+ for(const slot of weekSlots){
+   const key=slot.starts_at.slice(0,16);
+   if(!slotMap.has(key)||(!canBook(slotMap.get(key))&&canBook(slot)))slotMap.set(key,slot);
+ }
+ const ownBooking=new Map(s.bookings.filter(b=>['pending','confirmed','done','absent'].includes(b.status)).map(b=>[b.slot_id,b]));
+ const headingDays=weekDays.map((day,index)=>`<div class="week-date ${index===5?'sat':index===6?'sun':''} ${day===view.selectedDay?'selected':''} ${day===today()?'current':''}" role="columnheader"><button type="button" data-week-day="${day}" aria-label="${h(day)}を選択" ${day===view.selectedDay?'aria-current="date"':''}><span>${['月','火','水','木','金','土','日'][index]}</span><strong>${Number(day.slice(-2))}</strong></button></div>`).join('');
+ const rows=times.map(time=>{
+   const cells=weekDays.map(day=>{
+     const slot=slotMap.get(day+'T'+time),own=slot?ownBooking.get(slot.id):null;
+     const cls=`week-cell ${day===view.selectedDay?'selected':''}`;
+     if(own)return `<div class="${cls}"><span class="week-state own ${own.status==='pending'?'pending':''}" title="${own.status==='pending'?'申請中':'予約済み'}">${own.status==='pending'?'申':'済'}</span></div>`;
+     if(!slot)return `<div class="${cls}"><span class="week-state none">―</span></div>`;
+     if(!canBook(slot))return `<div class="${cls}"><span class="week-state closed">×</span></div>`;
+     return `<div class="${cls}"><button type="button" class="week-state bookable ${slot.mode==='approval'?'approval':'instant'}" data-action="book" data-id="${h(slot.id)}" aria-label="${h(day)} ${time} ${slot.mode==='approval'?'承認制で申請':'即時予約'}">${slot.mode==='approval'?'△':'○'}</button></div>`;
+   }).join('');
+   return `<div class="week-time" role="rowheader">${time}</div>${cells}`;
+ }).join('');
+ const controls=`<div class="booking-week-controls"><button type="button" class="button ghost" data-action="month-view">‹ 月間へ</button><div class="week-mover"><button type="button" data-action="prev-week" aria-label="前週">‹</button><strong>${h(weekStart.slice(5))}〜${h(weekEnd.slice(5))}</strong><button type="button" data-action="next-week" aria-label="翌週">›</button></div></div>`;
+ const legend='<div class="booking-legend"><span><b class="legend-instant">○</b> 即時</span><span><b class="legend-approval">△</b> 承認制</span><span>× 受付不可</span><span>― 枠なし</span><span>済 予約済み</span><span>申 申請中</span></div>';
+ const grid=times.length?`<div class="week-scroll" tabindex="0" aria-label="1週間の予約表。横にスクロールできます"><div class="week-grid" role="table" aria-label="週間予約表"><div class="week-time week-corner" role="columnheader">時間</div>${headingDays}${rows}</div></div>`:'<div class="empty">この週には公開中の予約枠がありません。前週・翌週も確認できます。</div>';
+ content(heading('予約','週間の空き状況から時間を選択してください')+block('週間予約表',controls+grid+legend)+history,'会員専用予約');
 }
 function ticketsMember(){const s=view.data;content(heading('チケット','残数と有効期限を確認できます')+block('保有チケット',s.tickets.length?s.tickets.map(t=>`<div class="ticket-card"><small>SESSION TICKETS</small><strong>${t.available_count}<span> / ${t.initial_count} 回</span></strong><p>有効期間 ${h(t.valid_from)} 〜 ${h(t.expires_on||'期限なし')}</p></div>`).join(''):'<div class="empty">チケットがありません。</div>'),'残り回数');}
 function profileMember(){const s=view.data;content(heading('マイページ',s.member.name+' 様')+block('会員情報',rRow('会員ID',s.member.id)+rRow('氏名',s.member.name))+block('連絡先変更申請',`<p class="muted small">電話番号・メールアドレスの変更は管理者の承認後に反映されます。</p><form data-form="contact"><label>電話番号<input name="phone" autocomplete="tel" maxlength="30"></label><label>メールアドレス<input name="email" type="email" maxlength="254"></label><button class="button main" type="submit">変更を申請する</button></form>`)+block('ログアウト',btn('ログアウト','logout','ghost')));
@@ -177,7 +226,8 @@ async function action(name,id){
  if(name==='close'){view.modal=null;render();return;}
  if(name==='logout'){await mutate('auth/logout',{},'ログアウトしました');view.auth={authenticated:false,adminConfigured:true};view.data=null;view.success='';render();return;}
  if(name==='prev-month'||name==='next-month'){view.monthView=monthOffset(view.monthView,name==='prev-month'?-1:1);view.selectedDay=view.monthView+'-01';render();return;}
- if(name==='month-view'||name==='week-view'){view.calendarMode=name==='month-view'?'month':'week';render();return;}
+ if(name==='month-view'){view.calendarMode='month';view.monthView=view.selectedDay.slice(0,7);render();window.scrollTo(0,0);return;}
+ if(name==='prev-week'||name==='next-week'){view.selectedDay=dateShift(view.selectedDay,name==='prev-week'?-7:7);view.monthView=view.selectedDay.slice(0,7);render();return;}
  if(name==='book'){const slot=view.data.slots.find(x=>x.id===id);if(!slot)return notice('予約枠の情報が更新されています。更新ボタンを押してください',true);modal('予約内容の確認',`<p class="muted">${h(fmt(slot.starts_at))} から60分</p><p>${slot.mode==='approval'?'承認申請を送信します。':'即時確定で予約します。'} チケットは予約確定時に消化します。</p><button class="button main" data-action="confirm-book" data-id="${h(id)}">${slot.mode==='approval'?'申請する':'予約を確定'}</button>`);return;}
  if(name==='confirm-book'){if(view.busy)return;view.busy=true;const button=document.querySelector('[data-action="confirm-book"]');if(button){button.disabled=true;button.textContent='送信中…';}try{await mutate('member/bookings',{slotId:id},'予約の受付処理が完了しました');}finally{view.busy=false;}return;}
  if(name==='withdraw'){await mutate('member/withdraw',{id},'承認待ち申請を取り消しました');return;}
@@ -215,7 +265,7 @@ async function submit(form){const data=Object.fromEntries(new FormData(form));co
 let touchStart=null;
 document.addEventListener('touchstart',e=>{const target=e.target.closest('.tabbar');touchStart=target?{x:e.touches[0].clientX,y:e.touches[0].clientY}:null},{passive:true});
 document.addEventListener('touchend',e=>{if(!touchStart)return;const dx=e.changedTouches[0].clientX-touchStart.x,dy=e.changedTouches[0].clientY-touchStart.y;touchStart=null;if(Math.abs(dx)>48&&Math.abs(dy)<30){const i=nav.findIndex(n=>n[0]===view.tab);view.tab=nav[Math.max(0,Math.min(nav.length-1,i+(dx<0?1:-1)))][0];view.error='';view.success='';render();}},{passive:true});
-document.addEventListener('click',e=>{const tab=e.target.closest('[data-tab]');if(tab){view.tab=tab.dataset.tab;view.modal=null;view.error='';view.success='';render();window.scrollTo(0,0);return;}const day=e.target.closest('[data-day]');if(day){view.selectedDay=day.dataset.day;render();return;}const btn=e.target.closest('[data-action]');if(btn){e.preventDefault();action(btn.dataset.action,btn.dataset.id).catch(err=>notice(errText(err),true));}});
+document.addEventListener('click',e=>{const tab=e.target.closest('[data-tab]');if(tab){view.tab=tab.dataset.tab;if(view.tab==='booking'&&!admin){view.calendarMode='month';view.monthView=view.selectedDay.slice(0,7);}view.modal=null;view.error='';view.success='';render();window.scrollTo(0,0);return;}const day=e.target.closest('[data-day]');if(day){view.selectedDay=day.dataset.day;view.calendarMode='week';render();window.scrollTo(0,0);return;}const weekDay=e.target.closest('[data-week-day]');if(weekDay){view.selectedDay=weekDay.dataset.weekDay;render();return;}const btn=e.target.closest('[data-action]');if(btn){e.preventDefault();action(btn.dataset.action,btn.dataset.id).catch(err=>notice(errText(err),true));}});
 document.addEventListener('submit',e=>{const f=e.target;if(!(f instanceof HTMLFormElement))return;e.preventDefault();if(view.busy)return;view.busy=true;submit(f).catch(err=>notice(errText(err),true)).finally(()=>{view.busy=false;});});
 const qp=new URLSearchParams(location.search);const invite=qp.get('invite');if(invite&&/^[0-9a-f]{64}$/.test(invite)){view.invite=invite;history.replaceState(null,'',location.pathname);}if(!admin&&qp.get('login')){view.error='LINEログインが完了しませんでした。招待リンク・登録状況を確認してください。';}
 view.selectedDay=today();view.monthView=today().slice(0,7);load();
