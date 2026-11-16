@@ -277,5 +277,11 @@ document.addEventListener('touchend',e=>{if(!touchStart)return;const dx=e.change
 document.addEventListener('click',e=>{const tab=e.target.closest('[data-tab]');if(tab){view.tab=tab.dataset.tab;if(view.tab==='booking'&&!admin){view.calendarMode='month';view.monthView=view.selectedDay.slice(0,7);}view.modal=null;view.error='';view.success='';render();window.scrollTo(0,0);return;}const day=e.target.closest('[data-day]');if(day){view.selectedDay=day.dataset.day;view.calendarMode='week';render();window.scrollTo(0,0);return;}const weekDay=e.target.closest('[data-week-day]');if(weekDay){view.selectedDay=weekDay.dataset.weekDay;render();return;}const btn=e.target.closest('[data-action]');if(btn){e.preventDefault();action(btn.dataset.action,btn.dataset.id).catch(err=>notice(errText(err),true));}});
 document.addEventListener('submit',e=>{const f=e.target;if(!(f instanceof HTMLFormElement))return;e.preventDefault();if(view.busy)return;view.busy=true;submit(f).catch(err=>notice(errText(err),true)).finally(()=>{view.busy=false;});});
 const qp=new URLSearchParams(location.search);const invite=qp.get('invite');if(invite&&/^[0-9a-f]{64}$/.test(invite)){view.invite=invite;history.replaceState(null,'',location.pathname);}if(!admin&&qp.get('login')){view.error='LINEログインが完了しませんでした。招待リンク・登録状況を確認してください。';}
+
+// On iOS Safari (including Home Screen), block two-finger pinch/gesture zoom.
+// One-finger vertical and horizontal scrolling remains enabled.
+const preventAppZoom=event=>{if(event.cancelable)event.preventDefault();};
+for(const kind of ['gesturestart','gesturechange','gestureend'])document.addEventListener(kind,preventAppZoom,{passive:false});
+document.addEventListener('touchmove',event=>{if(event.touches.length>1)preventAppZoom(event);},{passive:false});
 view.selectedDay=today();view.monthView=today().slice(0,7);load();
 })();

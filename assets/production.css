@@ -128,3 +128,11 @@ body[data-app="member"] .notice-entry h3{margin:0 0 6px;font-size:15px;line-heig
 body[data-app="member"] .notice-entry time{display:block;color:#a8b0bb;font-size:11px;margin:0 0 7px}
 body[data-app="member"] .notice-entry p{margin:0;font-size:13px;color:#c4cbd5;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:360px){body[data-app="member"] .member-header-actions{gap:6px}body[data-app="member"] .bell-button{width:37px;height:37px}}
+
+/* Keep ordinary one-finger scrolling, but do not show scrollbar tracks. */
+html,body{touch-action:pan-x pan-y;scrollbar-width:none;-ms-overflow-style:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar,*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important;background:transparent!important}
+.app,.surface,.modal,.week-scroll{scrollbar-width:none;-ms-overflow-style:none}
+@supports (-webkit-touch-callout:none){
+ input,textarea,select{font-size:16px}
+}
