@@ -115,7 +115,7 @@ function memberBookings(){
  }).join('');
  const controls=`<div class="booking-week-controls"><button type="button" class="button ghost" data-action="month-view">‹ 月間へ</button><div class="week-mover"><button type="button" data-action="prev-week" aria-label="前週">‹</button><strong>${h(weekStart.slice(5))}〜${h(weekEnd.slice(5))}</strong><button type="button" data-action="next-week" aria-label="翌週">›</button></div></div>`;
  const legend='<div class="booking-legend"><span><b class="legend-instant">○</b> 即時</span><span><b class="legend-approval">△</b> 承認制</span><span>× 受付不可</span><span>― 枠なし</span><span>済 予約済み</span><span>申 申請中</span></div>';
- const grid=times.length?`<div class="week-scroll" tabindex="0" aria-label="1週間の予約表。横にスクロールできます"><div class="week-grid" role="table" aria-label="週間予約表"><div class="week-time week-corner" role="columnheader">時間</div>${headingDays}${rows}</div></div>`:'<div class="empty">この週には公開中の予約枠がありません。前週・翌週も確認できます。</div>';
+ const grid=times.length?`<div class="week-scroll" aria-label="1週間の予約表"><div class="week-grid" role="table" aria-label="週間予約表"><div class="week-time week-corner" role="columnheader">時間</div>${headingDays}${rows}</div></div>`:'<div class="empty">この週には公開中の予約枠がありません。前週・翌週も確認できます。</div>';
  content(heading('予約','週間の空き状況から時間を選択してください')+block('週間予約表',controls+grid+legend)+history,'会員専用予約');
 }
 function ticketsMember(){const s=view.data;content(heading('チケット','残数と有効期限を確認できます')+block('保有チケット',s.tickets.length?s.tickets.map(t=>`<div class="ticket-card"><small>SESSION TICKETS</small><strong>${t.available_count}<span> / ${t.initial_count} 回</span></strong><p>有効期間 ${h(t.valid_from)} 〜 ${h(t.expires_on||'期限なし')}</p></div>`).join(''):'<div class="empty">チケットがありません。</div>'),'残り回数');}
