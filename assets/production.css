@@ -66,3 +66,8 @@
 /* The full seven-day matrix uses the available width and natural page flow; no internal scrolling. */
 @media(max-width:390px){.week-grid{grid-template-columns:36px repeat(7,minmax(0,1fr));grid-auto-rows:34px;grid-template-rows:40px}.week-time{font-size:10px}.week-date button strong{font-size:13px}.week-date button span{font-size:10px}.week-state{font-size:19px}.week-state.own{font-size:10px}}
 @media(max-width:340px){.week-grid{grid-template-columns:34px repeat(7,minmax(0,1fr));grid-auto-rows:32px}.week-state{font-size:18px}}
+
+/* Japanese public holidays (Cabinet Office): treat holidays like Sundays. */
+.calendar-grid .day.holiday{color:#f6a4a4}
+.calendar-grid .day.holiday.picked{color:#bf3c4d}
+.week-date.holiday button span,.week-date.holiday button strong,.week-date.sun button strong{color:#f3a1aa}
