@@ -154,3 +154,17 @@ form[data-form="body-record"] .record-fields{display:grid;grid-template-columns:
 form[data-form="body-record"] .record-fields label{min-width:0}
 form[data-form="body-record"] .record-fields input{min-width:0;width:100%}
 form[data-form="body-record"]>label{display:flex;flex-direction:column;align-items:center;text-align:center}form[data-form="body-record"]>label input[type="date"]{height:49px;min-height:49px;margin-left:auto;margin-right:auto;text-align:center}
+
+
+/* Member body-record trend charts and range selector. */
+.record-periods{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:2px 0 4px}
+.record-periods button{min-width:0;padding:9px 2px;border:1px solid #414a55;border-radius:9px;background:#202630;color:#dce2e9;font-size:12px;white-space:nowrap}
+.record-periods button.selected{background:#57c48a;border-color:#57c48a;color:#101812;font-weight:700}
+.record-chart{padding:8px 2px 4px}
+.record-chart-value{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.record-chart-value strong{font-size:20px;font-variant-numeric:tabular-nums}
+.record-chart-value span,.record-chart-dates{font-size:11px;color:#aeb7c2}
+.record-chart svg{display:block;width:100%;height:auto;overflow:visible;margin-top:8px}
+.record-chart-dates{display:flex;justify-content:space-between;padding:0 5px}
+.record-chart-empty{padding:22px 8px;text-align:center;color:#aeb7c2;font-size:13px}
+@media(max-width:360px){.record-periods{gap:4px}.record-periods button{font-size:11px;padding:8px 1px}}
