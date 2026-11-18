@@ -191,3 +191,40 @@ form[data-form="body-record"]>label{display:flex;flex-direction:column;align-ite
 .home-metrics{display:grid;grid-template-columns:minmax(0,1fr);gap:11px;margin-bottom:17px}
 .home-metric{width:100%;box-sizing:border-box}
 .home-book-button{display:block;width:100%;margin-top:0}
+
+
+/* Subtle polish for the member home cards and primary action. */
+body[data-app="member"] .home-metric{
+ position:relative;
+ background:linear-gradient(135deg,#1b2028 0%,#15181e 72%);
+ border-color:#ffffff14;
+ box-shadow:0 8px 22px #0002;
+ padding:19px 17px;
+}
+body[data-app="member"] .home-metric:before{
+ content:"";
+ position:absolute;
+ top:0;left:17px;right:17px;
+ height:1px;
+ background:linear-gradient(90deg,transparent,#ffffff30,transparent);
+}
+body[data-app="member"] .home-metric small{
+ color:#b5bdc9;
+ letter-spacing:.045em;
+}
+body[data-app="member"] .home-metric strong{
+ text-shadow:0 2px 16px #ffffff0c;
+}
+body[data-app="member"] .home-book-button{
+ border-radius:14px;
+ letter-spacing:.035em;
+ box-shadow:0 7px 20px #ffffff12;
+ transition:transform .18s ease,box-shadow .18s ease,background .18s ease;
+}
+body[data-app="member"] .home-book-button:active{
+ transform:scale(.985);
+ box-shadow:0 2px 8px #ffffff10;
+}
+@media(prefers-reduced-motion:reduce){
+ body[data-app="member"] .home-book-button{transition:none}
+}
