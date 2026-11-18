@@ -67,9 +67,9 @@ function heading(title,subtitle){if(!admin)return subtitle?`<div class="heading 
 function block(title,body,other=''){return `<section class="panel"><div class="panel-head"><h2>${h(title)}</h2>${other}</div>${body}</section>`;}
 const rRow=(title,subtitle,right)=>`<div class="line-item"><div class="line-text"><strong>${h(title)}</strong>${subtitle?`<small>${h(subtitle)}</small>`:''}</div>${right||''}</div>`;
 function homeMember(){const s=view.data;const next=s.bookings.filter(b=>b.status==='confirmed'&&b.starts_at>=today()).sort((a,b)=>a.starts_at.localeCompare(b.starts_at))[0];const count=s.tickets.reduce((x,t)=>x+t.available_count,0);
- const ticketCard='<div class="home-ticket-count"><strong>'+count+'</strong><span>回</span></div><p class="muted small">利用可能なチケット残数</p>';
- const nextCard=next?'<div class="home-next-date"><strong>'+h(next.starts_at.slice(5,10).replace('-','/'))+'</strong><span>'+h(next.starts_at.slice(11,16))+'</span></div><p class="muted small">60分・次回のご予約</p>':'<div class="home-next-empty">次回の予約はありません。</div>';
- content('<div class="member-welcome"><strong>'+h(s.member.name)+' 様</strong></div>'+block('チケット',ticketCard)+block('次回予約',nextCard)+'<button type="button" class="button main home-book-button" data-tab="booking">予約する</button>');
+ const ticketCard='<div class="metric home-metric"><small>チケット残数</small><strong>'+count+'<span>回</span></strong></div>';
+ const nextCard='<div class="metric home-metric"><small>次回予約</small><strong class="smaller">'+(next?h(next.starts_at.slice(5,16).replace('T',' ')):'予約なし')+'</strong></div>';
+ content('<div class="member-welcome"><strong>'+h(s.member.name)+' 様</strong></div><div class="home-metrics">'+ticketCard+nextCard+'</div><button type="button" class="button main home-book-button" data-tab="booking">予約する</button>');
 }
 const dateShift=(day,delta)=>{const t=new Date(day+'T12:00:00Z');t.setUTCDate(t.getUTCDate()+delta);return t.toISOString().slice(0,10);};
 const sundayOf=day=>{const dow=new Date(day+'T12:00:00Z').getUTCDay();return dateShift(day,-dow);};
