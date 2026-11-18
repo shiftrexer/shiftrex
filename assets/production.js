@@ -247,6 +247,7 @@ document.addEventListener('focusout',()=>{setTimeout(liveApplyPending,0);});
 async function mutate(path,data,msg){view.error='';view.success='';view.modalError='';try{await api(path,data);view.modal=null;await load();if(msg)notice(msg);}catch(e){if(view.modal){view.modalError=errText(e);render();}else notice(errText(e),true);}}
 function modal(title,body){view.modalError='';view.modal=`<h2>${h(title)}</h2>${body}<button class="button ghost" data-action="close">閉じる</button>`;render();}
 async function action(name,id){
+ if(name==='record-range'){view.recordRange=['1w','1m','3m','6m','1y'].includes(id)?id:'1m';render();return;}
  if(name==='refresh'){await load();return;}
  if(name==='refresh-now'){await refreshNow();return;}
  if(name==='view-notices'&&!admin){
