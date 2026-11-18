@@ -509,3 +509,9 @@ body[data-app="member"] .home-book-button:after{
 /* The month grid tracks the finger directly, then settles smoothly on release. */
 .calendar-grid.is-dragging{transition:none!important;will-change:transform}
 .calendar-grid.is-settling{transition:transform .18s cubic-bezier(.22,.72,.25,1)!important;will-change:transform}
+
+.calendar-track{position:relative;overflow:hidden;isolation:isolate}
+.calendar-track>.calendar-grid{position:relative;z-index:1}
+.calendar-track>.calendar-preview{position:absolute;inset:0 auto auto 0;width:100%;z-index:2;pointer-events:none;transform:translate3d(100%,0,0);background:inherit}
+.calendar-grid.is-dragging,.calendar-preview{transition:none!important;will-change:transform}
+.calendar-grid.is-settling{transition:transform .18s cubic-bezier(.22,.72,.25,1)!important}
