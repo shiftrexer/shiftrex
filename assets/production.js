@@ -88,8 +88,10 @@ function memberBookings(){
      const dow=new Date(day+'T12:00:00Z').getUTCDay();
      const classes=[day===today()?'today':'',day===view.selectedDay?'picked':'',available?'available':'',dow===0?'sunday':dow===6?'saturday':''].filter(Boolean).join(' ');
      return `<button type="button" class="day ${classes}" data-day="${day}" aria-label="${h(day)}の週を表示">${Number(day.slice(-2))}${available?'<span class="month-dot"></span>':''}</button>`;
-   })).join('');
-   const calendar=`<div class="calendar-head"><button type="button" data-action="prev-month" aria-label="前月">‹</button><strong>${h(view.monthView.slice(0,4))}年 ${Number(view.monthView.slice(5,7))}月</strong><button type="button" data-action="next-month" aria-label="翌月">›</button></div><p class="calendar-hint">日付を押すと、その週の空き状況が表示されます。</p><div class="calendar-grid ${view.calendarMotion==='next'?'month-enter-next':view.calendarMotion==='prev'?'month-enter-prev':''}"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>${cells}</div><div class="booking-legend"><span><b>●</b> 予約可能日</span></div>`;
+   }));
+   while(cells.length<42)cells.push('<span class="month-spacer" aria-hidden="true"></span>');
+   const cellMarkup=cells.join('');
+   const calendar=`<div class="calendar-head"><button type="button" data-action="prev-month" aria-label="前月">‹</button><strong>${h(view.monthView.slice(0,4))}年 ${Number(view.monthView.slice(5,7))}月</strong><button type="button" data-action="next-month" aria-label="翌月">›</button></div><p class="calendar-hint">日付を押すと、その週の空き状況が表示されます。</p><div class="calendar-grid ${view.calendarMotion==='next'?'month-enter-next':view.calendarMotion==='prev'?'month-enter-prev':''}"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>${cellMarkup}</div><div class="booking-legend"><span><b>●</b> 予約可能日</span></div>`;
    content(heading('予約','月間カレンダーから日付を選択してください')+block('月間カレンダー',calendar)+history,'会員専用予約');
    return;
  }
