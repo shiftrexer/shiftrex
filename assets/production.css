@@ -485,3 +485,7 @@ body[data-app="member"] .home-book-button:after{
 
 /* Ensure the member Record navigation chart icon renders at the same scale as the other icons. */
 .tabicon .nav-record-icon{display:block;width:30px;height:30px;overflow:visible}
+
+
+/* Monthly calendar: reserve horizontal gestures for month navigation while preserving vertical page scroll. */
+.calendar-grid{touch-action:pan-y;}
