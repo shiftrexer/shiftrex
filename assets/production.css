@@ -139,7 +139,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,*::-webkit-scrollbar{display:non
 
 
 /* Custom member navigation icons based on the supplied home and ticket references. */
-.tabicon .nav-home-icon,.tabicon .nav-ticket-icon{display:block;width:30px;height:30px;overflow:visible}
+.tabicon .nav-home-icon,.tabicon .nav-ticket-icon{display:block;width:30px;height:30px;overflow:visible} .tabicon .nav-member-icon{display:block;width:30px;height:30px;overflow:visible;flex-shrink:0}
 .tabicon .nav-ticket-icon{width:32px;height:32px}
 
 
