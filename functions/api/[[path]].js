@@ -88,7 +88,8 @@ async function slotAllowed(db,slotId,memberId){
  return slot;
 }
 async function adminState(db){
- const [members,slots,requests,tickets,menus,purchases,payments,notices]=await Promise.all([
+ await ensureBodyRecords(db);
+ const [members,slots,requests,tickets,menus,purchases,payments,notices,records]=await Promise.all([
  list(db,'SELECT id,display_name,name_kana,phone,email,joined_on,status,paused_from,paused_through,leave_on,CASE WHEN line_subject IS NULL THEN 0 ELSE 1 END AS line_linked FROM members ORDER BY created_at DESC LIMIT 300'),
  list(db,'SELECT id,starts_at,ends_at,mode,enabled FROM booking_slots WHERE starts_at>=? ORDER BY starts_at LIMIT 600',jstDay()),
  list(db,`SELECT r.id,r.slot_id,r.member_id,r.status,r.ticket_id,r.created_at,r.decline_reason,s.starts_at,m.display_name AS member_name FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id JOIN members m ON m.id=r.member_id WHERE s.starts_at>=? ORDER BY s.starts_at LIMIT 500`,jstDay()),
@@ -97,19 +98,35 @@ async function adminState(db){
  list(db,'SELECT id,member_id,menu_id,menu_name_at_sale,purchased_on,target_month,actual_price_yen,canceled_at FROM purchases ORDER BY created_at DESC LIMIT 300'),
  list(db,'SELECT id,purchase_id,paid_on,amount_yen,method_name_snapshot FROM payments WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 500'),
  list(db,'SELECT id,title,body,published_at FROM notices WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 50'),
+ list(db,'SELECT r.id,r.member_id,m.display_name,r.record_date,r.weight_kg,r.body_fat_pct,r.updated_at FROM body_records r JOIN members m ON m.id=r.member_id ORDER BY r.record_date DESC LIMIT 1000')
  ]);
- return{members,slots,requests,tickets,menus,purchases,payments,notices};
+ return{members,slots,requests,tickets,menus,purchases,payments,notices,records};
+}
+async function ensureBodyRecords(db){
+ await db.prepare(`CREATE TABLE IF NOT EXISTS body_records (
+ id TEXT PRIMARY KEY,
+ member_id TEXT NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
+ record_date TEXT NOT NULL,
+ weight_kg REAL NOT NULL CHECK(weight_kg>=20 AND weight_kg<=300),
+ body_fat_pct REAL NOT NULL CHECK(body_fat_pct>=1 AND body_fat_pct<=70),
+ created_at TEXT NOT NULL,
+ updated_at TEXT NOT NULL,
+ UNIQUE(member_id,record_date)
+ )`).run();
+ await db.prepare('CREATE INDEX IF NOT EXISTS body_records_member_date_idx ON body_records(member_id,record_date DESC)').run();
 }
 async function memberState(db,actor){
- const [slots,bookings,tickets,notices]=await Promise.all([
+ await ensureBodyRecords(db);
+ const [slots,bookings,tickets,notices,records]=await Promise.all([
  list(db,`SELECT s.id,s.starts_at,s.ends_at,s.mode,s.enabled,CASE WHEN EXISTS(SELECT 1 FROM booking_locks l WHERE l.block_start=substr(s.starts_at,1,16)) THEN 1 ELSE 0 END AS booked
  FROM booking_slots s JOIN published_months p ON p.month_key=substr(s.starts_at,1,7)
  WHERE s.starts_at>=? AND s.starts_at<? ORDER BY s.starts_at LIMIT 1000`,jstDay(),new Date(Date.now()+95*86400000).toISOString().slice(0,10)),
  list(db,`SELECT r.id,r.status,r.slot_id,r.decline_reason,r.created_at,s.starts_at FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id WHERE r.member_id=? ORDER BY r.created_at DESC,s.starts_at DESC,r.id DESC LIMIT 150`,actor.id),
  list(db,`SELECT t.id,t.initial_count,t.available_count,t.valid_from,t.expires_on FROM tickets t WHERE t.member_id=? AND t.disabled_at IS NULL ORDER BY COALESCE(t.expires_on,'9999') LIMIT 100`,actor.id),
- list(db,`SELECT id,title,body,published_at FROM notices WHERE deleted_at IS NULL AND published_at IS NOT NULL AND published_at<=? AND (audience='all' OR id IN(SELECT notice_id FROM notice_recipients WHERE member_id=?)) ORDER BY published_at DESC LIMIT 30`,now(),actor.id)
+ list(db,`SELECT id,title,body,published_at FROM notices WHERE deleted_at IS NULL AND published_at IS NOT NULL AND published_at<=? AND (audience='all' OR id IN(SELECT notice_id FROM notice_recipients WHERE member_id=?)) ORDER BY published_at DESC LIMIT 30`,now(),actor.id),
+ list(db,'SELECT id,member_id,record_date,weight_kg,body_fat_pct,created_at,updated_at FROM body_records WHERE member_id=? ORDER BY record_date DESC LIMIT 365',actor.id)
  ]);
- return{member:{id:actor.id,name:actor.name},slots,bookings,tickets,notices};
+ return{member:{id:actor.id,name:actor.name},slots,bookings,tickets,notices,records};
 }
 
 async function route(ctx,path,data){
@@ -191,6 +208,15 @@ async function route(ctx,path,data){
  if(path==='member/state'&&method==='GET'){
    if(actor?.type!=='member')return fail('LINEログインが必要です',401);
    return json(await memberState(db,actor));
+ }
+ if(path==='member/records'&&method==='POST'){
+   if(actor?.type!=='member')return fail('LINEログインが必要です',401);
+   await ensureBodyRecords(db);
+   const day=field(data.recordDate,10),weight=Number(data.weightKg),fat=Number(data.bodyFatPct);
+   if(!validDay(day)||day>jstDay()||!Number.isFinite(weight)||weight<20||weight>300||!Number.isFinite(fat)||fat<1||fat>70)return fail('記録日・体重・体脂肪率を確認してください');
+   const existing=await one(db,'SELECT id FROM body_records WHERE member_id=? AND record_date=?',actor.id,day),id=existing?.id||uid();
+   await db.batch([query(db,`INSERT INTO body_records(id,member_id,record_date,weight_kg,body_fat_pct,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(member_id,record_date) DO UPDATE SET weight_kg=excluded.weight_kg,body_fat_pct=excluded.body_fat_pct,updated_at=excluded.updated_at`,id,actor.id,day,weight,fat,now(),now()),audit(db,actor,'save_body_record','body_record',id,{recordDate:day,weightKg:weight,bodyFatPct:fat})]);
+   return json({ok:true,id});
  }
  if(path==='member/bookings'&&method==='POST'){
    if(actor?.type!=='member')return fail('LINEログインが必要です',401);
