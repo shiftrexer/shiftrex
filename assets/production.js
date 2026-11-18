@@ -1,7 +1,7 @@
 /* SHIFTREX production frontend; all data is fetched from authenticated Pages Functions. */
 (()=>{'use strict';
 const root=document.getElementById('app');const admin=document.body.dataset.app==='admin';
-const view={tab:'home',busy:false,auth:null,data:null,error:'',success:'',challenge:'',totpSetup:null,invite:'',selectedDay:'',monthView:'',pendingId:'',modal:null,modalError:'',calendarMode:'month'};
+const view={tab:'home',calendarMotion:'',busy:false,auth:null,data:null,error:'',success:'',challenge:'',totpSetup:null,invite:'',selectedDay:'',monthView:'',pendingId:'',modal:null,modalError:'',calendarMode:'month'};
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=iso=>iso?String(iso).replace('T',' ').slice(0,16):'—';
 const d=iso=>iso?String(iso).slice(0,10):'—';
@@ -89,7 +89,7 @@ function memberBookings(){
      const classes=[day===today()?'today':'',day===view.selectedDay?'picked':'',available?'available':'',dow===0?'sunday':dow===6?'saturday':''].filter(Boolean).join(' ');
      return `<button type="button" class="day ${classes}" data-day="${day}" aria-label="${h(day)}の週を表示">${Number(day.slice(-2))}${available?'<span class="month-dot"></span>':''}</button>`;
    })).join('');
-   const calendar=`<div class="calendar-head"><button type="button" data-action="prev-month" aria-label="前月">‹</button><strong>${h(view.monthView.slice(0,4))}年 ${Number(view.monthView.slice(5,7))}月</strong><button type="button" data-action="next-month" aria-label="翌月">›</button></div><p class="calendar-hint">日付を押すと、その週の空き状況が表示されます。</p><div class="calendar-grid"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>${cells}</div><div class="booking-legend"><span><b>●</b> 予約可能日</span></div>`;
+   const calendar=`<div class="calendar-head"><button type="button" data-action="prev-month" aria-label="前月">‹</button><strong>${h(view.monthView.slice(0,4))}年 ${Number(view.monthView.slice(5,7))}月</strong><button type="button" data-action="next-month" aria-label="翌月">›</button></div><p class="calendar-hint">日付を押すと、その週の空き状況が表示されます。</p><div class="calendar-grid ${view.calendarMotion==='next'?'month-enter-next':view.calendarMotion==='prev'?'month-enter-prev':''}"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>${cells}</div><div class="booking-legend"><span><b>●</b> 予約可能日</span></div>`;
    content(heading('予約','月間カレンダーから日付を選択してください')+block('月間カレンダー',calendar)+history,'会員専用予約');
    return;
  }
@@ -268,7 +268,7 @@ async function action(name,id){
  if(name==='copy-totp'){try{await navigator.clipboard.writeText(view.totpSetup?.secret||'');notice('設定キーをコピーしました');}catch(e){notice('コピーできません。設定キーを長押ししてコピーしてください',true);}return;}
  if(name==='close'){view.modal=null;render();return;}
  if(name==='logout'){await mutate('auth/logout',{},'ログアウトしました');view.auth={authenticated:false,adminConfigured:true};view.data=null;view.success='';render();return;}
- if(name==='prev-month'||name==='next-month'){view.monthView=monthOffset(view.monthView,name==='prev-month'?-1:1);view.selectedDay=view.monthView+'-01';render();return;}
+ if(name==='prev-month'||name==='next-month'){view.calendarMotion=name==='next-month'?'next':'prev';view.monthView=monthOffset(view.monthView,name==='prev-month'?-1:1);view.selectedDay=view.monthView+'-01';render();return;}
  if(name==='month-view'){view.calendarMode='month';view.monthView=view.selectedDay.slice(0,7);render();window.scrollTo(0,0);return;}
  if(name==='prev-week'||name==='next-week'){view.selectedDay=dateShift(view.selectedDay,name==='prev-week'?-7:7);view.monthView=view.selectedDay.slice(0,7);render();return;}
  if(name==='book'){const slot=view.data.slots.find(x=>x.id===id);if(!slot)return notice('予約枠の情報が更新されています。更新ボタンを押してください',true);modal('予約内容の確認',`<p class="muted">${h(fmt(slot.starts_at))} から60分</p><p>${slot.mode==='approval'?'承認申請を送信します。':'即時確定で予約します。'} チケットは予約確定時に消化します。</p><button class="button main" data-action="confirm-book" data-id="${h(id)}">${slot.mode==='approval'?'申請する':'予約を確定'}</button>`);return;}
@@ -319,8 +319,9 @@ document.addEventListener('pointerup',e=>finishTabPointer(e,false),{passive:true
 document.addEventListener('pointercancel',e=>finishTabPointer(e,true),{passive:true});
 let calendarSwipe=null;let suppressCalendarClickUntil=0;
 document.addEventListener('pointerdown',e=>{const grid=e.target.closest('.calendar-grid');if(!grid||view.tab!=='booking'||view.calendarMode!=='month'||e.button!==0)return;calendarSwipe={id:e.pointerId,x:e.clientX,y:e.clientY};},{passive:true});
-document.addEventListener('pointerup',e=>{if(!calendarSwipe||calendarSwipe.id!==e.pointerId)return;const start=calendarSwipe;calendarSwipe=null;const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.35)return;suppressCalendarClickUntil=Date.now()+500;view.monthView=monthOffset(view.monthView,dx<0?1:-1);view.selectedDay=view.monthView+'-01';render();},{passive:true});
+document.addEventListener('pointerup',e=>{if(!calendarSwipe||calendarSwipe.id!==e.pointerId)return;const start=calendarSwipe;calendarSwipe=null;const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.35)return;suppressCalendarClickUntil=Date.now()+500;view.calendarMotion=dx<0?'next':'prev';view.monthView=monthOffset(view.monthView,dx<0?1:-1);view.selectedDay=view.monthView+'-01';render();},{passive:true});
 document.addEventListener('pointercancel',e=>{if(calendarSwipe&&calendarSwipe.id===e.pointerId)calendarSwipe=null;},{passive:true});
+document.addEventListener('animationend',e=>{if(e.target.matches('.calendar-grid.month-enter-next,.calendar-grid.month-enter-prev')){e.target.classList.remove('month-enter-next','month-enter-prev');view.calendarMotion='';}},{passive:true});
 document.addEventListener('click',e=>{if(Date.now()<suppressCalendarClickUntil&&e.target.closest('.calendar-grid')){e.preventDefault();e.stopPropagation();return;}const tab=e.target.closest('[data-tab]');if(tab&&Date.now()<suppressTabClickUntil){e.preventDefault();e.stopPropagation();return;}if(tab&&Date.now()<suppressTabClickUntil){e.preventDefault();e.stopPropagation();return;}if(tab){const previousTab=view.tab;view.tab=tab.dataset.tab;if(view.tab==='booking'&&!admin){view.calendarMode='month';view.monthView=view.selectedDay.slice(0,7);}view.modal=null;view.error='';view.success='';render();animateTabChange(previousTab,view.tab);window.scrollTo(0,0);return;}const day=e.target.closest('[data-day]');if(day){view.selectedDay=day.dataset.day;view.calendarMode='week';render();window.scrollTo(0,0);return;}const weekDay=e.target.closest('[data-week-day]');if(weekDay){view.selectedDay=weekDay.dataset.weekDay;render();return;}const btn=e.target.closest('[data-action]');if(btn){e.preventDefault();action(btn.dataset.action,btn.dataset.id).catch(err=>notice(errText(err),true));}});
 document.addEventListener('submit',e=>{const f=e.target;if(!(f instanceof HTMLFormElement))return;e.preventDefault();if(view.busy)return;view.busy=true;submit(f).catch(err=>notice(errText(err),true)).finally(()=>{view.busy=false;});});
 const qp=new URLSearchParams(location.search);const invite=qp.get('invite');if(invite&&/^[0-9a-f]{64}$/.test(invite)){view.invite=invite;history.replaceState(null,'',location.pathname);}if(!admin&&qp.get('login')){view.error='LINEログインが完了しませんでした。招待リンク・登録状況を確認してください。';}
