@@ -135,14 +135,14 @@ function recordChart(rows,key,label,unit,range){
  const values=filtered.map(r=>Number(r[key])),lo=Math.min(...values),hi=Math.max(...values),rawPad=Math.max((hi-lo)*.18,.5),stepBase=(hi-lo+rawPad*2)/4;
  const magnitude=Math.pow(10,Math.floor(Math.log10(stepBase||1))),niceStep=[1,2,2.5,5,10].map(n=>n*magnitude).find(n=>n>=stepBase)||10*magnitude;
  const min=Math.floor((lo-rawPad)/niceStep)*niceStep,max=Math.ceil((hi+rawPad)/niceStep)*niceStep;
- const plotLeft=58,plotRight=326,plotTop=12,plotBottom=112,plotHeight=plotBottom-plotTop;
+ const plotLeft=58,plotRight=326,plotTop=26,plotBottom=126,plotHeight=plotBottom-plotTop;
  const x=i=>plotLeft+(filtered.length===1?0:i*(plotRight-plotLeft)/(filtered.length-1)),y=v=>plotBottom-(v-min)/(max-min||1)*plotHeight;
  const path=filtered.map((r,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(Number(r[key])).toFixed(1)).join(' ');
  const dots=filtered.map((r,i)=>'<circle cx="'+x(i).toFixed(1)+'" cy="'+y(Number(r[key])).toFixed(1)+'" r="3.5" fill="#57c48a"/>').join('');
  const ticks=Array.from({length:5},(_,i)=>min+niceStep*i);
  const grid=ticks.map(v=>{const yy=y(v).toFixed(1);return '<line x1="'+plotLeft+'" y1="'+yy+'" x2="'+plotRight+'" y2="'+yy+'" stroke="currentColor" opacity=".18"/><text x="49" y="'+(Number(yy)+3.5)+'" text-anchor="end" fill="currentColor" opacity=".78" font-size="10">'+v.toFixed(1)+'</text>';}).join('');
  const first=filtered[0].record_date.slice(5).replace('-','/'),last=filtered[filtered.length-1].record_date.slice(5).replace('-','/');
- return '<div class="record-chart"><div class="record-chart-value"><strong>'+values[values.length-1].toFixed(1)+' '+unit+'</strong><span>最新 · '+last+'</span></div><svg viewBox="0 0 340 124" role="img" aria-label="'+label+'の推移。縦軸は'+unit+'、横軸は日付"><text x="8" y="11" fill="currentColor" opacity=".7" font-size="9">'+unit+'</text>'+grid+'<path d="M'+plotLeft+' '+plotBottom+'H'+plotRight+'" stroke="currentColor" opacity=".45" fill="none"/><path d="'+path+'" stroke="#57c48a" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'+dots+'</svg><div class="record-chart-dates"><span>'+first+'</span><span>'+last+'</span></div></div>';
+ return '<div class="record-chart"><div class="record-chart-value"><strong>'+values[values.length-1].toFixed(1)+' '+unit+'</strong><span>最新 · '+last+'</span></div><svg viewBox="0 0 340 140" role="img" aria-label="'+label+'の推移。縦軸は'+unit+'、横軸は日付"><text x="8" y="11" fill="currentColor" opacity=".7" font-size="9">'+unit+'</text>'+grid+'<path d="M'+plotLeft+' '+plotBottom+'H'+plotRight+'" stroke="currentColor" opacity=".45" fill="none"/><path d="'+path+'" stroke="#57c48a" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'+dots+'</svg><div class="record-chart-dates"><span>'+first+'</span><span>'+last+'</span></div></div>';
 }
 function recordsMember(){
  const s=view.data,rows=s.records||[],latest=rows[0],range=view.recordRange||'1m';
