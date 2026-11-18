@@ -17,7 +17,7 @@ const monthOffset=(m,n)=>{const t=new Date(m+'-01T12:00:00Z');t.setUTCMonth(t.ge
 const btn=(label,action,cls='')=>`<button class="button ${cls}" data-action="${action}">${h(label)}</button>`;
 const stat=(name)=>`<span class="status status-${h(name)}">${h(({pending:'承認待ち',confirmed:'確定',declined:'却下',withdrawn:'取下げ',canceled:'キャンセル',done:'実施済み',absent:'欠席'})[name]||name)}</span>`;
 const badge=(t)=>`<span class="label">${h(t)}</span>`;
-const homeIcon='<svg class="nav-home-icon" viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M2.7 14.1 14.3 2.7a2.4 2.4 0 0 1 3.4 0l11.6 11.4a1.8 1.8 0 0 1-1.3 3.1h-3v11a2 2 0 0 1-2 2h-6.2V20a3 3 0 0 0-6 0v10.2H4.8a2 2 0 0 1-2-2v-11h-1a1.8 1.8 0 0 1-.1-3.1Z"/></svg>';
+const homeIcon='<svg class="nav-home-icon" viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M16 2.8 2.4 15.2a1.8 1.8 0 0 0 1.2 3.1H6v9a2 2 0 0 0 2 2h5.2v-8.1a2.8 2.8 0 0 1 5.6 0v8.1H24a2 2 0 0 0 2-2v-9h2.4a1.8 1.8 0 0 0 1.2-3.1L16 2.8Z"/></svg>';
 const ticketIcon='<svg class="nav-ticket-icon" viewBox="0 0 32 32" aria-hidden="true"><g transform="rotate(-12 16 16)" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5h21a2 2 0 0 1 2 2v4.2a3.2 3.2 0 0 0 0 6.4v4.4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2Z"/><path d="M20.2 11.5v2.2m0 3.1V19m0 3.1v1.1" stroke-width="2.8"/></g></svg>';
 const nav=admin?[['home',homeIcon,'ホーム'],['booking','▣','予約管理'],['members','♙','会員管理'],['tickets',ticketIcon,'チケット管理'],['settings','⚙','設定']]:[['home',homeIcon,'ホーム'],['booking','▣','予約'],['tickets',ticketIcon,'チケット'],['profile','◉','マイページ']];
 function content(html,subtitle=''){
