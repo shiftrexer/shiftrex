@@ -185,3 +185,9 @@ form[data-form="body-record"]>label{display:flex;flex-direction:column;align-ite
 .home-next-date span{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
 .home-next-empty{padding:8px 0;color:#aeb7c2;font-size:14px}
 .home-book-button{display:block;width:100%;margin-top:14px}
+
+
+/* Stack the original home metric cards vertically. */
+.home-metrics{display:grid;grid-template-columns:minmax(0,1fr);gap:11px;margin-bottom:17px}
+.home-metric{width:100%;box-sizing:border-box}
+.home-book-button{display:block;width:100%;margin-top:0}
