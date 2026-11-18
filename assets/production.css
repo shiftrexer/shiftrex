@@ -489,3 +489,19 @@ body[data-app="member"] .home-book-button:after{
 
 /* Monthly calendar: reserve horizontal gestures for month navigation while preserving vertical page scroll. */
 .calendar-grid{touch-action:pan-y;}
+
+
+/* Smooth horizontal month-to-month calendar transition. */
+@keyframes shiftrex-month-enter-next{
+ from{opacity:.35;transform:translate3d(22px,0,0)}
+ to{opacity:1;transform:translate3d(0,0,0)}
+}
+@keyframes shiftrex-month-enter-prev{
+ from{opacity:.35;transform:translate3d(-22px,0,0)}
+ to{opacity:1;transform:translate3d(0,0,0)}
+}
+.calendar-grid.month-enter-next{animation:shiftrex-month-enter-next .24s cubic-bezier(.22,.72,.25,1) both}
+.calendar-grid.month-enter-prev{animation:shiftrex-month-enter-prev .24s cubic-bezier(.22,.72,.25,1) both}
+@media(prefers-reduced-motion:reduce){
+ .calendar-grid.month-enter-next,.calendar-grid.month-enter-prev{animation:none}
+}
