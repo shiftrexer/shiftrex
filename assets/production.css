@@ -228,3 +228,90 @@ body[data-app="member"] .home-book-button:active{
 @media(prefers-reduced-motion:reduce){
  body[data-app="member"] .home-book-button{transition:none}
 }
+
+
+/* SHIFTREX home: refined premium dark treatment */
+body[data-app="member"] .home-metrics{gap:13px;margin-bottom:18px}
+body[data-app="member"] .home-metric{
+ position:relative;
+ isolation:isolate;
+ min-height:126px;
+ padding:20px 19px;
+ overflow:hidden;
+ border:1px solid rgba(255,255,255,.09);
+ border-radius:20px;
+ background:linear-gradient(118deg,#1b2228 0%,#15191f 58%,#12161b 100%);
+ box-shadow:0 12px 28px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.035);
+}
+body[data-app="member"] .home-metric:before{
+ content:"";
+ position:absolute;
+ z-index:-1;
+ top:-52px;right:-28px;
+ width:170px;height:125px;
+ border-radius:50%;
+ background:radial-gradient(ellipse,rgba(86,212,157,.13),transparent 70%);
+ pointer-events:none;
+}
+body[data-app="member"] .home-metric:after{
+ content:"";
+ position:absolute;
+ left:19px;right:19px;bottom:0;
+ height:1px;
+ background:linear-gradient(90deg,rgba(86,212,157,.55),rgba(86,212,157,0));
+ opacity:.75;
+}
+body[data-app="member"] .home-metric small{
+ color:#aeb9b8;
+ font-size:11px;
+ font-weight:700;
+ letter-spacing:.12em;
+}
+body[data-app="member"] .home-metric strong{
+ position:relative;
+ margin-top:13px;
+ color:#f5f8f6;
+ font-size:38px;
+ line-height:1.08;
+ letter-spacing:-.055em;
+ font-variant-numeric:tabular-nums;
+ text-shadow:none;
+}
+body[data-app="member"] .home-metric strong span{
+ color:#8fa69b;
+ font-size:14px;
+ letter-spacing:0;
+}
+body[data-app="member"] .home-metric strong.smaller{
+ font-size:20px;
+ letter-spacing:-.025em;
+ line-height:1.35;
+}
+body[data-app="member"] .home-metric:nth-child(2):before{
+ background:radial-gradient(ellipse,rgba(115,161,220,.13),transparent 70%);
+}
+body[data-app="member"] .home-metric:nth-child(2):after{
+ background:linear-gradient(90deg,rgba(115,161,220,.55),rgba(115,161,220,0));
+}
+body[data-app="member"] .home-book-button{
+ position:relative;
+ min-height:54px;
+ margin-top:1px;
+ border:1px solid rgba(180,235,210,.65);
+ border-radius:16px;
+ background:linear-gradient(105deg,#d9f3e6 0%,#b8e4ce 100%);
+ color:#10251b;
+ font-size:14px;
+ font-weight:850;
+ letter-spacing:.08em;
+ box-shadow:0 9px 24px rgba(86,212,157,.13),inset 0 1px 0 rgba(255,255,255,.7);
+ transition:transform .18s ease,filter .18s ease,box-shadow .18s ease;
+}
+body[data-app="member"] .home-book-button:active{
+ transform:translateY(1px) scale(.99);
+ filter:brightness(.96);
+ box-shadow:0 3px 10px rgba(86,212,157,.1);
+}
+@media(prefers-reduced-motion:reduce){
+ body[data-app="member"] .home-book-button{transition:none}
+}
