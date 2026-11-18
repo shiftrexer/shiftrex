@@ -149,7 +149,7 @@ function recordsMember(){
  const periods=[['1w','1週間'],['1m','1ヶ月'],['3m','3ヶ月'],['6m','6ヶ月'],['1y','1年']];
  const controls='<div class="record-periods">'+periods.map(([v,label])=>'<button type="button" class="'+(range===v?'selected':'')+'" data-action="record-range" data-id="'+v+'">'+label+'</button>').join('')+'</div>';
  const charts=block('体重の推移',recordChart(rows,'weight_kg','体重','kg',range))+block('体脂肪率の推移',recordChart(rows,'body_fat_pct','体脂肪率','%',range));
- const history=rows.length?rows.map(r=>rRow(r.record_date,'体重 '+Number(r.weight_kg).toFixed(1)+' kg ・ 体脂肪率 '+Number(r.body_fat_pct).toFixed(1)+' %')).join(''):'<div class="empty">記録はまだありません。</div>';
+ const history=rows.length?rows.map(r=>rRow(r.record_date,'体重 '+Number(r.weight_kg).toFixed(1)+' kg ・ 体脂肪率 '+Number(r.body_fat_pct).toFixed(1)+' %','<button type="button" class="button slim ghost" data-action="edit-record" data-id="'+h(r.id)+'">修正</button>')).join(''):'<div class="empty">記録はまだありません。</div>';
  content(heading('記録','体重・体脂肪率の変化を記録できます')+(latest?'<div class="metrics"><div class="metric"><small>最新の体重</small><strong>'+Number(latest.weight_kg).toFixed(1)+'<span>kg</span></strong></div><div class="metric"><small>最新の体脂肪率</small><strong>'+Number(latest.body_fat_pct).toFixed(1)+'<span>%</span></strong></div></div>':'')+block('今日の記録','<form data-form="body-record"><label>日付<input name="recordDate" type="date" value="'+today()+'" max="'+today()+'" required></label><div class="record-fields"><label>体重（kg）<input name="weightKg" type="number" min="20" max="300" step="0.1" placeholder="例：70.5" required></label><label>体脂肪率（%）<input name="bodyFatPct" type="number" min="1" max="70" step="0.1" placeholder="例：20.5" required></label></div><button class="button main" type="submit">記録を保存</button></form><p class="muted small">同じ日付の記録をもう一度保存すると、その日の数値を更新します。</p>')+block('グラフの期間',controls)+charts+block('記録履歴',history),'体の変化をチェック');
 }
 function profileMember(){const s=view.data;content(heading('マイページ',s.member.name+' 様')+block('会員情報',rRow('会員ID',s.member.id)+rRow('氏名',s.member.name))+block('連絡先変更申請',`<p class="muted small">電話番号・メールアドレスの変更は管理者の承認後に反映されます。</p><form data-form="contact"><label>電話番号<input name="phone" autocomplete="tel" maxlength="30"></label><label>メールアドレス<input name="email" type="email" maxlength="254"></label><button class="button main" type="submit">変更を申請する</button></form>`)+block('ログアウト',btn('ログアウト','logout','ghost')));
@@ -253,6 +253,7 @@ async function mutate(path,data,msg){view.error='';view.success='';view.modalErr
 function modal(title,body){view.modalError='';view.modal=`<h2>${h(title)}</h2>${body}<button class="button ghost" data-action="close">閉じる</button>`;render();}
 async function action(name,id){
  if(name==='record-range'){view.recordRange=['1w','1m','3m','6m','1y'].includes(id)?id:'1m';render();return;}
+ if(name==='edit-record'){const record=(view.data?.records||[]).find(r=>r.id===id);if(!record)return;modal('記録を修正',`<form data-form="record-edit"><input type="hidden" name="recordId" value="${h(record.id)}"><label>日付<input name="recordDate" type="date" value="${h(record.record_date)}" max="${today()}" required></label><div class="record-fields"><label>体重（kg）<input name="weightKg" type="number" min="20" max="300" step="0.1" value="${Number(record.weight_kg).toFixed(1)}" required></label><label>体脂肪率（%）<input name="bodyFatPct" type="number" min="1" max="70" step="0.1" value="${Number(record.body_fat_pct).toFixed(1)}" required></label></div><button class="button main" type="submit">変更を保存</button></form>`);return;}
  if(name==='refresh'){await load();return;}
  if(name==='refresh-now'){await refreshNow();return;}
  if(name==='view-notices'&&!admin){
@@ -293,6 +294,7 @@ async function submit(form){const data=Object.fromEntries(new FormData(form));co
  if(name==='otp'){try{await api('auth/admin/verify',{challengeId:view.challenge,code:data.code});view.challenge='';view.totpSetup=null;await load();}catch(e){notice(errText(e),true);}return;}
  if(name==='contact'){await mutate('member/contact-change',data,'変更を申請しました');return;}
  if(name==='body-record'){await mutate('member/records',{recordDate:data.recordDate,weightKg:Number(data.weightKg),bodyFatPct:Number(data.bodyFatPct)},'記録を保存しました');return;}
+ if(name==='record-edit'){await mutate('member/records/update',{recordId:data.recordId,recordDate:data.recordDate,weightKg:Number(data.weightKg),bodyFatPct:Number(data.bodyFatPct)},'記録を修正しました');return;}
  if(name==='member'){await mutate('admin/members',data,'会員を登録しました');return;}
  if(name==='slot'){await mutate('admin/slots',data,'予約枠を登録しました');return;}
  if(name==='publish'){await mutate('admin/publish',data,'対象月を公開しました');return;}
