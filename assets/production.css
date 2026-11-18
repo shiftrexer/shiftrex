@@ -168,3 +168,9 @@ form[data-form="body-record"]>label{display:flex;flex-direction:column;align-ite
 .record-chart-dates{display:flex;justify-content:space-between;padding:0 5px}
 .record-chart-empty{padding:22px 8px;text-align:center;color:#aeb7c2;font-size:13px}
 @media(max-width:360px){.record-periods{gap:4px}.record-periods button{font-size:11px;padding:8px 1px}}
+
+
+/* Keep the latest-value row physically separate from the chart plot. */
+.record-chart-value{position:relative;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;min-height:32px;margin:0 0 14px;z-index:1}
+.record-chart-value strong,.record-chart-value span{position:static;max-width:100%;line-height:1.4}
+.record-chart svg{display:block;width:100%;height:auto;margin:0;overflow:hidden;position:relative;z-index:0}
