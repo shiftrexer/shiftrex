@@ -209,6 +209,18 @@ async function route(ctx,path,data){
    if(actor?.type!=='member')return fail('LINEログインが必要です',401);
    return json(await memberState(db,actor));
  }
+ if(path==='member/records/update'&&method==='POST'){
+   if(actor?.type!=='member')return fail('LINEログインが必要です',401);
+   await ensureBodyRecords(db);
+   const recordId=field(data.recordId,80),day=field(data.recordDate,10),weight=Number(data.weightKg),fat=Number(data.bodyFatPct);
+   if(!recordId||!validDay(day)||day>jstDay()||!Number.isFinite(weight)||weight<20||weight>300||!Number.isFinite(fat)||fat<1||fat>70)return fail('記録日・体重・体脂肪率を確認してください');
+   const existing=await one(db,'SELECT id,record_date,weight_kg,body_fat_pct FROM body_records WHERE id=? AND member_id=?',recordId,actor.id);
+   if(!existing)return fail('修正する記録が見つかりません',404);
+   const duplicate=await one(db,'SELECT id FROM body_records WHERE member_id=? AND record_date=? AND id<>?',actor.id,day,recordId);
+   if(duplicate)return fail('その日付には既に記録があります。既存の記録を修正してください',409);
+   await db.batch([query(db,'UPDATE body_records SET record_date=?,weight_kg=?,body_fat_pct=?,updated_at=? WHERE id=? AND member_id=?',day,weight,fat,now(),recordId,actor.id),audit(db,actor,'update_body_record','body_record',recordId,{recordDate:day,weightKg:weight,bodyFatPct:fat,previousRecordDate:existing.record_date})]);
+   return json({ok:true,id:recordId});
+ }
  if(path==='member/records'&&method==='POST'){
    if(actor?.type!=='member')return fail('LINEログインが必要です',401);
    await ensureBodyRecords(db);
