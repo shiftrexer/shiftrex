@@ -505,3 +505,7 @@ body[data-app="member"] .home-book-button:after{
 @media(prefers-reduced-motion:reduce){
  .calendar-grid.month-enter-next,.calendar-grid.month-enter-prev{animation:none}
 }
+
+/* The month grid tracks the finger directly, then settles smoothly on release. */
+.calendar-grid.is-dragging{transition:none!important;will-change:transform}
+.calendar-grid.is-settling{transition:transform .18s cubic-bezier(.22,.72,.25,1)!important;will-change:transform}
