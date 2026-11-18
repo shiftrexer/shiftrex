@@ -434,3 +434,50 @@ body[data-app="member"] .home-book-button:active:after{transform:translateX(3px)
 @media(prefers-reduced-motion:reduce){
  body[data-app="member"] .home-book-button:after{transition:none}
 }
+
+
+/* SHIFTREX home monochrome pass: remove colored accents from the home design. */
+body[data-app="member"] .member-welcome:before{
+ background:linear-gradient(180deg,#fff,#777);
+}
+body[data-app="member"] .member-welcome:after{
+ color:#858585;
+}
+body[data-app="member"] .home-metric{
+ border-color:rgba(255,255,255,.13);
+ background:
+  radial-gradient(ellipse at 100% 0%,rgba(255,255,255,.09),transparent 43%),
+  linear-gradient(145deg,#242424 0%,#191919 52%,#101010 100%);
+}
+body[data-app="member"] .home-metric:before{
+ border-color:rgba(255,255,255,.12);
+ box-shadow:0 0 0 15px rgba(255,255,255,.025),0 0 0 31px rgba(255,255,255,.018);
+}
+body[data-app="member"] .home-metric:after{
+ background:linear-gradient(90deg,#fff 0%,rgba(255,255,255,.18) 48%,transparent 100%);
+}
+body[data-app="member"] .home-metric small{color:#bdbdbd}
+body[data-app="member"] .home-metric strong{color:#fff}
+body[data-app="member"] .home-metric strong span{color:#aaa}
+body[data-app="member"] .home-metric:nth-child(2){
+ background:
+  radial-gradient(ellipse at 100% 0%,rgba(255,255,255,.08),transparent 43%),
+  linear-gradient(145deg,#222 0%,#181818 52%,#101010 100%);
+}
+body[data-app="member"] .home-metric:nth-child(2):before{
+ border-color:rgba(255,255,255,.12);
+ box-shadow:0 0 0 15px rgba(255,255,255,.025),0 0 0 31px rgba(255,255,255,.018);
+}
+body[data-app="member"] .home-metric:nth-child(2):after{
+ background:linear-gradient(90deg,#ddd 0%,rgba(255,255,255,.16) 48%,transparent 100%);
+}
+body[data-app="member"] .home-book-button{
+ border-color:rgba(255,255,255,.35);
+ background:linear-gradient(110deg,#f5f5f5 0%,#d8d8d8 100%);
+ color:#111;
+ box-shadow:0 12px 27px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.8);
+}
+body[data-app="member"] .home-book-button:after{
+ border-color:rgba(0,0,0,.22);
+ color:#111;
+}
