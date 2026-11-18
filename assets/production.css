@@ -144,7 +144,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,*::-webkit-scrollbar{display:non
 
 
 /* Align the body-record date field consistently on iPhone Safari. */
-form[data-form="body-record"] input[type="date"]{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:100%;min-width:0;height:49px;min-height:49px;padding:11px 13px;text-align:left;color-scheme:dark}
+form[data-form="body-record"] input[type="date"]{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:180px;max-width:100%;min-width:0;height:49px;min-height:49px;padding:11px 13px;text-align:left;color-scheme:dark}
 form[data-form="body-record"] input[type="date"]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}
 form[data-form="body-record"] input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1);margin:0 0 0 6px}
 
