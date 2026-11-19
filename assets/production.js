@@ -1,7 +1,7 @@
 /* SHIFTREX production frontend; all data is fetched from authenticated Pages Functions. */
 (()=>{'use strict';
 const root=document.getElementById('app');const admin=document.body.dataset.app==='admin';
-const view={tab:'home',calendarMotion:'',busy:false,auth:null,data:null,error:'',success:'',challenge:'',totpSetup:null,invite:'',selectedDay:'',monthView:'',pendingId:'',modal:null,modalError:'',calendarMode:'month'};
+const view={tab:'home',calendarMotion:'',busy:false,auth:null,data:null,error:'',success:'',challenge:'',totpSetup:null,invite:'',selectedDay:'',monthView:'',pendingId:'',modal:null,modalError:'',calendarMode:'month',bookingMenuId:'',slotMonth:'',slotMonthSlots:[],slotEdits:{}};
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=iso=>iso?String(iso).replace('T',' ').slice(0,16):'—';
 const d=iso=>iso?String(iso).slice(0,10):'—';
@@ -77,9 +77,15 @@ function memberBookings(){
  const s=view.data;
  if(!view.selectedDay)view.selectedDay=today();
  if(!view.monthView)view.monthView=view.selectedDay.slice(0,7);
- const history=block('予約履歴',s.bookings.length?s.bookings.map(b=>rRow(fmt(b.starts_at),b.status==='pending'?'承認をお待ちください':'60分',`${stat(b.status)}${b.status==='pending'?`<button class="button slim ghost" data-action="withdraw" data-id="${h(b.id)}">取消</button>`:''}`)).join(''):'<div class="empty">予約履歴はありません。</div>');
+ const history=block('予約履歴',s.bookings.length?s.bookings.map(b=>rRow(fmt(b.starts_at),`${b.booking_menu_name||'予約'} · ${b.duration_minutes||60}分`,`${stat(b.status)}${b.status==='pending'?`<button class="button slim ghost" data-action="withdraw" data-id="${h(b.id)}">取消</button>`:''}`)).join(''):'<div class="empty">予約履歴はありません。</div>');
  const cutoffMs=Date.now()+3*3600000;
- const canBook=slot=>!!slot&&!!slot.enabled&&!slot.booked&&Date.parse(slot.starts_at+':00+09:00')>=cutoffMs;
+ if(!view.bookingMenuId&&s.bookingMenus?.length)view.bookingMenuId=s.bookingMenus[0].id;
+ const selectedMenu=(s.bookingMenus||[]).find(m=>m.id===view.bookingMenuId);
+ const slotsByStart=new Map(s.slots.map(slot=>[slot.starts_at.slice(0,16),slot]));
+ const blocksFor=slot=>selectedMenu?Array.from({length:selectedMenu.duration_minutes/30},(_,i)=>{const at=new Date(Date.parse(slot.starts_at+':00+09:00')+i*1800000).toLocaleString('sv-SE',{timeZone:'Asia/Tokyo',hour12:false}).replace(' ','T').slice(0,16);return slotsByStart.get(at);}):[];
+ const canBook=slot=>{if(!slot||!selectedMenu||!Date.parse(slot.starts_at+':00+09:00')||Date.parse(slot.starts_at+':00+09:00')<cutoffMs)return false;const blocks=blocksFor(slot);return blocks.length===selectedMenu.duration_minutes/30&&blocks.every(b=>b&&b.enabled&&!b.booked);};
+ const bookingMode=slot=>blocksFor(slot).some(b=>b?.mode==='approval')?'approval':'instant';
+ const menuPicker=(s.bookingMenus||[]).length?'<label class="booking-menu-label">予約メニュー<select data-booking-menu>'+s.bookingMenus.map(m=>'<option value="'+h(m.id)+'" '+(m.id===view.bookingMenuId?'selected':'')+'>'+h(m.name)+' · '+Number(m.duration_minutes)+'分</option>').join('')+'</select></label>':'<div class="empty">予約メニューがまだ登録されていません。管理者にお問い合わせください。</div>';
  if(view.calendarMode!=='week'){
    const days=Array.from({length:new Date(+view.monthView.slice(0,4),+view.monthView.slice(5,7),0).getDate()},(_,i)=>view.monthView+'-'+String(i+1).padStart(2,'0'));
    const startDay=new Date(days[0]+'T12:00:00Z').getUTCDay();
@@ -92,7 +98,7 @@ function memberBookings(){
    while(cells.length<42)cells.push('<span class="month-spacer" aria-hidden="true"></span>');
    const cellMarkup=cells.join('');
    const calendar=`<div class="calendar-head"><button type="button" data-action="prev-month" aria-label="前月">‹</button><strong>${h(view.monthView.slice(0,4))}年 ${Number(view.monthView.slice(5,7))}月</strong><button type="button" data-action="next-month" aria-label="翌月">›</button></div><p class="calendar-hint">日付を押すと、その週の空き状況が表示されます。</p><div class="calendar-grid ${view.calendarMotion==='next'?'month-enter-next':view.calendarMotion==='prev'?'month-enter-prev':''}"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>${cellMarkup}</div><div class="booking-legend"><span><b>●</b> 予約可能日</span></div>`;
-   content(heading('予約','月間カレンダーから日付を選択してください')+block('月間カレンダー',calendar)+history,'会員専用予約');
+   content(menuPicker+heading('予約','メニューを選び、日付を選択してください')+block('月間カレンダー',calendar)+history,'会員専用予約');
    return;
  }
  const weekStart=sundayOf(view.selectedDay);
@@ -120,14 +126,15 @@ function memberBookings(){
      if(own)return `<div class="${cls}"><span class="week-state own ${own.status==='pending'?'pending':''}" title="${own.status==='pending'?'申請中':'予約済み'}">${own.status==='pending'?'申':'済'}</span></div>`;
      if(!slot)return `<div class="${cls}"><span class="week-state none">―</span></div>`;
      if(!canBook(slot))return `<div class="${cls}"><span class="week-state closed">×</span></div>`;
-     return `<div class="${cls}"><button type="button" class="week-state bookable ${slot.mode==='approval'?'approval':'instant'}" data-action="book" data-id="${h(slot.id)}" aria-label="${h(day)} ${time} ${slot.mode==='approval'?'承認制で申請':'即時予約'}">${slot.mode==='approval'?'△':'○'}</button></div>`;
+     const mode=bookingMode(slot);
+     return `<div class="${cls}"><button type="button" class="week-state bookable ${mode==='approval'?'approval':'instant'}" data-action="book" data-id="${h(slot.id)}" aria-label="${h(day)} ${time} ${mode==='approval'?'承認制で申請':'即時予約'}">${mode==='approval'?'△':'○'}</button></div>`;
    }).join('');
    return `<div class="week-time" role="rowheader">${time}</div>${cells}`;
  }).join('');
  const controls=`<div class="booking-week-controls"><button type="button" class="button ghost" data-action="month-view">‹ 月間へ</button><div class="week-mover"><button type="button" data-action="prev-week" aria-label="前週">‹</button><strong>${h(weekStart.slice(5))}〜${h(weekEnd.slice(5))}</strong><button type="button" data-action="next-week" aria-label="翌週">›</button></div></div>`;
  const legend='<div class="booking-legend"><span><b class="legend-instant">○</b> 即時</span><span><b class="legend-approval">△</b> 承認制</span><span>× 受付不可</span><span>― 枠なし</span><span>済 予約済み</span><span>申 申請中</span></div>';
  const grid=times.length?`<div class="week-scroll" aria-label="1週間の予約表"><div class="week-grid" role="table" aria-label="週間予約表"><div class="week-time week-corner" role="columnheader">時間</div>${headingDays}${rows}</div></div>`:'<div class="empty">この週には公開中の予約枠がありません。前週・翌週も確認できます。</div>';
- content(heading('予約','週間の空き状況から時間を選択してください')+block('週間予約表',controls+grid+legend)+history,'会員専用予約');
+ content(menuPicker+heading('予約','メニューを選び、空き時間を選択してください')+block('週間予約表',controls+grid+legend)+history,'会員専用予約');
 }
 function ticketsMember(){const s=view.data;content(heading('チケット','残数と有効期限を確認できます')+block('保有チケット',s.tickets.length?s.tickets.map(t=>`<div class="ticket-card"><small>SESSION TICKETS</small><strong>${t.available_count}<span> / ${t.initial_count} 回</span></strong><p>有効期間 ${h(t.valid_from)} 〜 ${h(t.expires_on||'期限なし')}</p></div>`).join(''):'<div class="empty">チケットがありません。</div>'),'残り回数');}
 function recordChart(rows,key,label,unit,range){
@@ -252,7 +259,7 @@ window.addEventListener('pageshow',startLiveSync);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)startLiveSync();});
 window.addEventListener('online',startLiveSync);
 document.addEventListener('input',event=>{const form=event.target.closest?.('form[data-form]');if(form)dirtyForms.add(form);});
-document.addEventListener('change',event=>{const form=event.target.closest?.('form[data-form]');if(form)dirtyForms.add(form);if(form?.dataset.form==='purchase-payment'&&event.target.name==='menuId'){const price=Number(event.target.selectedOptions[0]?.dataset.price||0);const priceInput=form.elements.namedItem('price'),amountInput=form.elements.namedItem('amount');if(priceInput)priceInput.value=String(price);if(amountInput)amountInput.value=String(price);}});
+document.addEventListener('change',event=>{if(event.target.matches('[data-booking-menu]')){view.bookingMenuId=event.target.value;render();return;}const form=event.target.closest?.('form[data-form]');if(form)dirtyForms.add(form);if(form?.dataset.form==='purchase-payment'&&event.target.name==='menuId'){const price=Number(event.target.selectedOptions[0]?.dataset.price||0);const priceInput=form.elements.namedItem('price'),amountInput=form.elements.namedItem('amount');if(priceInput)priceInput.value=String(price);if(amountInput)amountInput.value=String(price);}});
 document.addEventListener('focusout',()=>{setTimeout(liveApplyPending,0);});
 async function mutate(path,data,msg){view.error='';view.success='';view.modalError='';try{await api(path,data);view.modal=null;await load();if(msg)notice(msg);}catch(e){if(view.modal){view.modalError=errText(e);render();}else notice(errText(e),true);}}
 function modal(title,body,cancelLabel='閉じる'){view.modalError='';view.modal=`<h2>${h(title)}</h2>${body}<button class="button ghost" data-action="close">${h(cancelLabel)}</button>`;render();}
@@ -298,8 +305,8 @@ async function action(name,id){
  if(name==='prev-month'||name==='next-month'){view.calendarMotion=name==='next-month'?'next':'prev';view.monthView=monthOffset(view.monthView,name==='prev-month'?-1:1);view.selectedDay=view.monthView+'-01';render();return;}
  if(name==='month-view'){view.calendarMode='month';view.monthView=view.selectedDay.slice(0,7);render();window.scrollTo(0,0);return;}
  if(name==='prev-week'||name==='next-week'){view.selectedDay=dateShift(view.selectedDay,name==='prev-week'?-7:7);view.monthView=view.selectedDay.slice(0,7);render();return;}
- if(name==='book'){const slot=view.data.slots.find(x=>x.id===id);if(!slot)return notice('予約枠の情報が更新されています。更新ボタンを押してください',true);modal('予約内容の確認',`<p class="muted">${h(fmt(slot.starts_at))} から60分</p><p>${slot.mode==='approval'?'承認申請を送信します。':'即時確定で予約します。'} チケットは予約確定時に消化します。</p><button class="button main" data-action="confirm-book" data-id="${h(id)}">${slot.mode==='approval'?'申請する':'予約を確定'}</button>`);return;}
- if(name==='confirm-book'){if(view.busy)return;view.busy=true;const button=document.querySelector('[data-action="confirm-book"]');if(button){button.disabled=true;button.textContent='送信中…';}try{await mutate('member/bookings',{slotId:id},'予約の受付処理が完了しました');}finally{view.busy=false;}return;}
+ if(name==='book'){const slot=view.data.slots.find(x=>x.id===id),menu=(view.data.bookingMenus||[]).find(m=>m.id===view.bookingMenuId);if(!slot||!menu)return notice('予約メニューまたは予約枠が更新されています。更新してください',true);const count=menu.duration_minutes/30,blocks=Array.from({length:count},(_,i)=>{const at=new Date(Date.parse(slot.starts_at+':00+09:00')+i*1800000).toLocaleString('sv-SE',{timeZone:'Asia/Tokyo',hour12:false}).replace(' ','T').slice(0,16);return view.data.slots.find(x=>x.starts_at.slice(0,16)===at);}),mode=blocks.some(x=>x?.mode==='approval')?'approval':'instant';modal('予約内容の確認',`<p><strong>${h(menu.name)}</strong></p><p class="muted">${h(fmt(slot.starts_at))} から${Number(menu.duration_minutes)}分</p><p>${mode==='approval'?'承認申請を送信します。':'即時確定で予約します。'} チケットは予約確定時に消化します。</p><button class="button main" data-action="confirm-book" data-id="${h(id)}">${mode==='approval'?'申請する':'予約を確定'}</button>`);return;}
+ if(name==='confirm-book'){if(view.busy)return;view.busy=true;const button=document.querySelector('[data-action="confirm-book"]');if(button){button.disabled=true;button.textContent='送信中…';}try{await mutate('member/bookings',{slotId:id,bookingMenuId:view.bookingMenuId},'予約の受付処理が完了しました');}finally{view.busy=false;}return;}
  if(name==='withdraw'){await mutate('member/withdraw',{id},'承認待ち申請を取り消しました');return;}
  if(name==='approve'){if(!window.confirm('この予約を承認し、チケットを消化しますか？'))return;await mutate('admin/decision',{id,decision:'approve'},'予約を承認しました');return;}
  if(name==='decline'){modal('予約申請の却下',`<form data-form="decline" data-id="${h(id)}"><label>理由（任意）<textarea name="reason" maxlength="250" rows="3"></textarea></label><button class="button main" type="submit">申請を却下する</button></form>`);return;}
