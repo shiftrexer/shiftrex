@@ -629,3 +629,6 @@ form[data-form="manual-ticket"]>label input[type="date"]{-webkit-appearance:none
 .slot-matrix-legend span{white-space:nowrap}
 .booking-menu-label{display:block;margin:0 0 14px;color:#c1c6d1;font-size:12px;font-weight:700}
 .booking-menu-label select{margin-top:7px}
+
+.slot-cell:disabled{opacity:.48;cursor:not-allowed;transform:none}
+.slot-matrix-month{margin:10px 0;font-size:14px;font-weight:800;color:#e7ebf0}
