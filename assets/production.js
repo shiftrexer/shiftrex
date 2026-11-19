@@ -297,7 +297,7 @@ async function action(name,id){
  }
  if(name==='save-month-slots'){
    const changes=Object.entries(view.slotEdits||{}).map(([key,state])=>{const [day,time]=key.split('|');return{day,time,state};});if(!changes.length)return;
-   try{await api('admin/slots/month',{month:view.slotMonth,changes});const result=await api('admin/slots/month?month='+encodeURIComponent(view.slotMonth));view.slotMonthSlots=result.slots;view.slotEdits={};await load();notice(changes.length+'件の予約枠を保存しました');}catch(e){notice(errText(e),true);}return;
+   try{for(let i=0;i<changes.length;i+=100)await api('admin/slots/month',{month:view.slotMonth,changes:changes.slice(i,i+100)});const result=await api('admin/slots/month?month='+encodeURIComponent(view.slotMonth));view.slotMonthSlots=result.slots;view.slotEdits={};await load();notice(changes.length+'件の予約枠を保存しました');}catch(e){notice(errText(e),true);}return;
  }
  if(name==='edit-booking-menu'){const menu=(view.data?.bookingMenus||[]).find(x=>x.id===id);if(!menu)return;modal('予約メニューを変更','<form data-form="booking-menu-edit"><input type="hidden" name="menuId" value="'+h(menu.id)+'"><label>メニュー名<input name="name" value="'+h(menu.name)+'" required maxlength="100"></label><label>所要時間<select name="durationMinutes">'+Array.from({length:16},(_,i)=>(i+1)*30).map(n=>'<option value="'+n+'" '+(n===Number(menu.duration_minutes)?'selected':'')+'>'+n+'分</option>').join('')+'</select></label><button class="button main" type="submit">変更を保存</button></form>');return;}
  if(name==='member-key'){
