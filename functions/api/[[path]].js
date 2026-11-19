@@ -92,7 +92,7 @@ async function adminState(db){
  await ensureBodyRecords(db);
  const [members,slots,requests,tickets,menus,bookingMenus,purchases,payments,notices,records]=await Promise.all([
  list(db,'SELECT id,member_number,display_name,name_kana,phone,email,joined_on,status,paused_from,paused_through,leave_on,CASE WHEN line_subject IS NULL THEN 0 ELSE 1 END AS line_linked FROM members WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 300'),
- list(db,'SELECT id,starts_at,ends_at,mode,enabled FROM booking_slots WHERE starts_at>=? ORDER BY starts_at LIMIT 600',jstDay()),
+ list(db,'SELECT id,starts_at,ends_at,mode,enabled FROM booking_slots WHERE starts_at>=? ORDER BY starts_at LIMIT 3000',jstDay()),
  list(db,`SELECT r.id,r.slot_id,r.member_id,r.status,r.ticket_id,r.created_at,r.decline_reason,r.duration_minutes,bm.name AS booking_menu_name,s.starts_at,m.display_name AS member_name FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id JOIN members m ON m.id=r.member_id LEFT JOIN booking_menus bm ON bm.id=r.booking_menu_id WHERE s.starts_at>=? ORDER BY s.starts_at LIMIT 500`,jstDay()),
  list(db,'SELECT * FROM tickets ORDER BY created_at DESC LIMIT 500'),
  list(db,'SELECT id,name,standard_price_yen,ticket_count,validity_days,target_month_required,hidden FROM menus WHERE deleted_at IS NULL ORDER BY created_at LIMIT 100'),
@@ -359,7 +359,8 @@ async function route(ctx,path,data){
      const day=field(item.day,10),time=field(item.time,5),state=field(item.state,2);
      if(!validDay(day)||day.slice(0,7)!==month||!/^([01]\\d|2[0-3]):(00|30)$/.test(time)||!['－','○','△','×'].includes(state))return fail('予約枠の変更内容が不正です');
      const start=day+'T'+time,existing=await one(db,'SELECT id FROM booking_slots WHERE starts_at=? ORDER BY created_at DESC LIMIT 1',start);
-     if(existing&&await one(db,"SELECT id FROM booking_requests WHERE slot_id=? AND status IN ('pending','confirmed','done','absent') LIMIT 1",existing.id))return fail('予約・申請が入っている枠は変更できません。更新してご確認ください',409);
+     if(existing&&await one(db,'SELECT id FROM booking_requests WHERE slot_id=? LIMIT 1',existing.id))return fail('予約履歴がある枠は変更できません',409);
+     if(await one(db,`SELECT r.id FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id WHERE r.status='pending' AND s.starts_at<=? AND datetime(s.starts_at,'+'||COALESCE(r.duration_minutes,60)||' minutes')>? LIMIT 1`,start,start))return fail('承認待ち予約が含まれる時間帯は変更できません',409);
      if(existing&&await one(db,'SELECT booking_id FROM booking_locks WHERE block_start=?',start))return fail('予約済みの時間帯は変更できません',409);
      if(state==='－'){
        if(existing)actions.push(query(db,'DELETE FROM booking_slots WHERE id=? AND NOT EXISTS(SELECT 1 FROM booking_requests WHERE slot_id=?)',existing.id,existing.id));
