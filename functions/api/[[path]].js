@@ -249,7 +249,7 @@ async function route(ctx,path,data){
    const t=await availableTicket(db,actor.id,slotId);if(!t)return fail('予約日に有効なチケットがありません',409);
    const status=required.some(b=>b.mode==='approval')?'pending':'confirmed',id=uid(),start=slot.starts_at,end=new Date(Date.parse(start+':00+09:00')+menu.duration_minutes*60000).toLocaleString('sv-SE',{timeZone:'Asia/Tokyo',hour12:false}).replace(' ','T').slice(0,16);
    const actions=[query(db,`INSERT INTO booking_requests(id,slot_id,member_id,status,ticket_id,booking_menu_id,duration_minutes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,id,slotId,actor.id,status,status==='confirmed'?t.id:null,menuId,menu.duration_minutes,now(),now()),audit(db,actor,'create_booking','booking',id,{status,menuId,durationMinutes:menu.duration_minutes})];
-   if(status==='confirmed')actions.push(query(db,`UPDATE booking_requests SET status='declined',updated_at=? WHERE id<>? AND status='pending' AND EXISTS(SELECT 1 FROM booking_slots s WHERE s.id=booking_requests.slot_id AND s.starts_at<? AND datetime(s.starts_at,'+'||COALESCE(booking_requests.duration_minutes,60)||' minutes')>?)`,now(),id,end,start));
+   if(status==='confirmed')actions.push(query(db,`UPDATE booking_requests SET status='declined',updated_at=? WHERE id<>? AND status='pending' AND EXISTS(SELECT 1 FROM booking_slots s WHERE s.id=booking_requests.slot_id AND s.starts_at<? AND strftime('%Y-%m-%dT%H:%M',s.starts_at,'+'||COALESCE(booking_requests.duration_minutes,60)||' minutes')>?)`,now(),id,end,start));
    await db.batch(actions);
    return json({ok:true,id,status});
  }
@@ -362,7 +362,7 @@ async function route(ctx,path,data){
      if(!validDay(day)||day.slice(0,7)!==month||!/^([01]\\d|2[0-3]):(00|30)$/.test(time)||!['－','○','△','×'].includes(state))return fail('予約枠の変更内容が不正です');
      const start=day+'T'+time,existing=await one(db,'SELECT id FROM booking_slots WHERE starts_at=? ORDER BY created_at DESC LIMIT 1',start);
      if(existing&&await one(db,'SELECT id FROM booking_requests WHERE slot_id=? LIMIT 1',existing.id))return fail('予約履歴がある枠は変更できません',409);
-     if(await one(db,`SELECT r.id FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id WHERE r.status='pending' AND s.starts_at<=? AND datetime(s.starts_at,'+'||COALESCE(r.duration_minutes,60)||' minutes')>? LIMIT 1`,start,start))return fail('承認待ち予約が含まれる時間帯は変更できません',409);
+     if(await one(db,`SELECT r.id FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id WHERE r.status='pending' AND s.starts_at<=? AND strftime('%Y-%m-%dT%H:%M',s.starts_at,'+'||COALESCE(r.duration_minutes,60)||' minutes')>? LIMIT 1`,start,start))return fail('承認待ち予約が含まれる時間帯は変更できません',409);
      if(existing&&await one(db,'SELECT booking_id FROM booking_locks WHERE block_start=?',start))return fail('予約済みの時間帯は変更できません',409);
      if(state==='－'){
        if(existing)actions.push(query(db,'DELETE FROM booking_slots WHERE id=? AND NOT EXISTS(SELECT 1 FROM booking_requests WHERE slot_id=?)',existing.id,existing.id));
@@ -393,7 +393,7 @@ async function route(ctx,path,data){
      const reservationEnd=new Date(Date.parse(r.starts_at+':00+09:00')+Number(r.duration_minutes||60)*60000).toLocaleString('sv-SE',{timeZone:'Asia/Tokyo',hour12:false}).replace(' ','T').slice(0,16);
      await db.batch([
        query(db,`UPDATE booking_requests SET status='confirmed',ticket_id=?,updated_at=? WHERE id=? AND status='pending'`,ticket.id,now(),id),
-       query(db,`UPDATE booking_requests SET status='declined',updated_at=? WHERE id<>? AND status='pending' AND EXISTS(SELECT 1 FROM booking_slots s WHERE s.id=booking_requests.slot_id AND s.starts_at<? AND datetime(s.starts_at,'+'||COALESCE(booking_requests.duration_minutes,60)||' minutes')>?)`,now(),id,reservationEnd,r.starts_at)
+       query(db,`UPDATE booking_requests SET status='declined',updated_at=? WHERE id<>? AND status='pending' AND EXISTS(SELECT 1 FROM booking_slots s WHERE s.id=booking_requests.slot_id AND s.starts_at<? AND strftime('%Y-%m-%dT%H:%M',s.starts_at,'+'||COALESCE(booking_requests.duration_minutes,60)||' minutes')>?)`,now(),id,reservationEnd,r.starts_at)
      ]);
    }else return fail('承認・却下を選択してください');
    await audit(db,actor,decision+'booking','booking',id).run();return json({ok:true});
