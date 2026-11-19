@@ -539,3 +539,8 @@ body[data-app="member"] .home-book-button:after{
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] label{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] input,.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] select{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
 .overlay:has(.member-detail-line) .modal>.button.ghost{width:100%;max-width:100%;box-sizing:border-box}
+
+/* Member edit: enforce two-column rows for contact and membership fields. */
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:start;gap:10px!important;width:100%;min-width:0;max-width:100%}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row>label{display:block!important;width:100%;min-width:0;max-width:100%;margin:0}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row input,.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row select{width:100%;min-width:0;max-width:100%}
