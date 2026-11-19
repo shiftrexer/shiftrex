@@ -554,3 +554,11 @@ body[data-app="member"] .home-book-button:after{
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] input,
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] select{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;box-sizing:border-box!important;margin-left:0!important;margin-right:0!important}
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;column-gap:10px!important;overflow:hidden}
+
+
+/* Keep the join-date and status controls inside their own half-width columns on iOS. */
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row{display:flex!important;flex-wrap:nowrap!important;align-items:flex-start!important;gap:10px!important;width:100%!important;min-width:0!important;max-width:100%!important;overflow:hidden!important}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row>label{display:block!important;flex:1 1 0!important;width:0!important;min-width:0!important;max-width:50%!important;overflow:hidden!important}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row input,
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row select{display:block!important;inline-size:100%!important;width:100%!important;min-width:0!important;max-width:100%!important;box-sizing:border-box!important;margin:7px 0 0!important;padding-left:8px!important;padding-right:8px!important}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row input[type="date"]{-webkit-appearance:none!important;appearance:none!important;text-align:center!important}
