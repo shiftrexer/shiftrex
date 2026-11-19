@@ -350,7 +350,7 @@ async function route(ctx,path,data){
    if(!requireAdmin(actor))return fail('管理者ログインが必要です',401);
    const month=new URL(req.url).searchParams.get('month')||'';
    if(!validMonth(month))return fail('対象月が不正です');
-   return json({month,slots:await list(db,'SELECT id,starts_at,ends_at,mode,enabled FROM booking_slots WHERE starts_at>=? AND starts_at<? ORDER BY starts_at',month+'-01',monthOffsetForApi(month))});
+   return json({month,slots:await list(db,'SELECT s.id,s.starts_at,s.ends_at,s.mode,s.enabled,CASE WHEN EXISTS(SELECT 1 FROM booking_locks l WHERE l.block_start=substr(s.starts_at,1,16)) THEN 1 ELSE 0 END AS booked,CASE WHEN EXISTS(SELECT 1 FROM booking_requests r WHERE r.slot_id=s.id) THEN 1 ELSE 0 END AS has_request FROM booking_slots s WHERE s.starts_at>=? AND s.starts_at<? ORDER BY s.starts_at',month+'-01',monthOffsetForApi(month))});
  }
  if(path==='admin/slots/month'&&method==='POST'){
    if(!requireAdmin(actor))return fail('操作権限がありません',403);
