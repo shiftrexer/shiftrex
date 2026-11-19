@@ -594,3 +594,12 @@ body[data-app="member"] .home-book-button:after{
 .panel:has(.member-number-picker) .member-number-keys{display:grid;width:100%;min-width:0;max-width:100%;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;box-sizing:border-box}
 .panel:has(.member-number-picker) .member-number-keys button{display:flex;align-items:center;justify-content:center;width:100%;min-width:0;max-width:100%;margin:0;padding:8px 4px;box-sizing:border-box;appearance:none;-webkit-appearance:none}
 .panel:has(.member-number-picker) .member-number-picker>.button.main{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;margin:10px 0 0}
+
+
+/* Prevent iOS native date/month controls from overflowing the ticket purchase form. */
+form[data-form="purchase-payment"]{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+form[data-form="purchase-payment"]>label{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+form[data-form="purchase-payment"]>label input,
+form[data-form="purchase-payment"]>label select{display:block;width:100%;min-width:0;max-width:100%;inline-size:100%;min-inline-size:0;max-inline-size:100%;box-sizing:border-box}
+form[data-form="purchase-payment"]>label input[type="date"],
+form[data-form="purchase-payment"]>label input[type="month"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;inline-size:100%;min-inline-size:0;max-inline-size:100%;box-sizing:border-box;padding-left:10px;padding-right:10px}
