@@ -331,6 +331,19 @@ async function route(ctx,path,data){
    if(!name||!money(price)||!Number.isInteger(count)||count<0||count>1000||(days!=null&&(!Number.isInteger(days)||days<1||days>3650)))return fail('メニュー入力を確認してください');
    const id=uid();await db.batch([query(db,`INSERT INTO menus(id,name,standard_price_yen,ticket_count,validity_days,target_month_required,hidden,created_at,updated_at) VALUES(?,?,?,?,?,?,0,?,?)`,id,name,price,count,days,monthReq?1:0,now(),now()),audit(db,actor,'create_menu','menu',id)]);return json({ok:true,id});
  }
+ if(path==='admin/purchase-payment'&&method==='POST'){
+   if(!requireManager(actor))return fail('操作権限がありません',403);
+   const memberId=field(data.memberId,100),menuId=field(data.menuId,100),price=Number(data.price),day=field(data.date,10),target=field(data.targetMonth,7);
+   const amount=Number(data.amount),paidDate=field(data.paidDate,10),paymentMethod=field(data.method,100);
+   const menu=await one(db,'SELECT * FROM menus WHERE id=? AND hidden=0 AND deleted_at IS NULL',menuId);
+   const mem=await one(db,"SELECT id FROM members WHERE id=? AND status<>'left'",memberId);
+   if(!mem||!menu||!money(price)||!validDay(day)||(menu.target_month_required&&!validMonth(target))||!Number.isFinite(amount)||amount<0||(amount>0&&(!validDay(paidDate)||!paymentMethod)))return fail('購入・入金内容を確認してください');
+   const id=uid(),actions=[query(db,`INSERT INTO purchases(id,member_id,menu_id,menu_name_at_sale,purchased_on,target_month,actual_price_yen,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,id,memberId,menuId,menu.name,day,target||null,price,now(),now()),audit(db,actor,'create_purchase','purchase',id,{price})];
+   if(amount>0){actions.push(query(db,`INSERT INTO payments(id,purchase_id,paid_on,amount_yen,method_name_snapshot,created_at) VALUES(?,?,?,?,?,?)`,uid(),id,paidDate,amount,paymentMethod,now()),audit(db,actor,'register_payment','purchase',id,{amount}));}
+   await db.batch(actions);
+   if(price===0||amount>0)await issueTicket(db,id);
+   return json({ok:true,id});
+ }
  if(path==='admin/purchases'&&method==='POST'){
    if(!requireManager(actor))return fail('操作権限がありません',403);
    const memberId=field(data.memberId,100),menuId=field(data.menuId,100),price=Number(data.price),day=field(data.date,10),target=field(data.targetMonth,7);
