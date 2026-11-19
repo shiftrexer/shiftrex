@@ -584,3 +584,13 @@ body[data-app="member"] .home-book-button:after{
 .member-number-picker>.button.main{margin-top:10px}
 .member-number-result{min-height:20px;margin-top:9px;text-align:center;color:#aeb5c2;font-size:12px;font-weight:700}
 .member-number-result.is-found{color:#7fe8ad}
+
+/* Keep ticket-management form controls and keypad frames aligned within their panels. */
+.panel:has(.member-number-picker) form{width:100%;min-width:0;max-width:100%;align-items:stretch;box-sizing:border-box}
+.panel:has(.member-number-picker) form>*{min-width:0;max-width:100%;box-sizing:border-box}
+.panel:has(.member-number-picker) .member-number-picker{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden}
+.panel:has(.member-number-picker) .member-number-picker input[type="hidden"]{display:none!important}
+.panel:has(.member-number-picker) .member-number-display{display:flex;width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden}
+.panel:has(.member-number-picker) .member-number-keys{display:grid;width:100%;min-width:0;max-width:100%;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;box-sizing:border-box}
+.panel:has(.member-number-picker) .member-number-keys button{display:flex;align-items:center;justify-content:center;width:100%;min-width:0;max-width:100%;margin:0;padding:8px 4px;box-sizing:border-box;appearance:none;-webkit-appearance:none}
+.panel:has(.member-number-picker) .member-number-picker>.button.main{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;margin:10px 0 0}
