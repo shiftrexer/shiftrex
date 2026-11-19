@@ -90,7 +90,7 @@ async function slotAllowed(db,slotId,memberId){
 async function adminState(db){
  await ensureBodyRecords(db);
  const [members,slots,requests,tickets,menus,purchases,payments,notices,records]=await Promise.all([
- list(db,'SELECT id,display_name,name_kana,phone,email,joined_on,status,paused_from,paused_through,leave_on,CASE WHEN line_subject IS NULL THEN 0 ELSE 1 END AS line_linked FROM members ORDER BY created_at DESC LIMIT 300'),
+ list(db,'SELECT id,member_number,display_name,name_kana,phone,email,joined_on,status,paused_from,paused_through,leave_on,CASE WHEN line_subject IS NULL THEN 0 ELSE 1 END AS line_linked FROM members ORDER BY created_at DESC LIMIT 300'),
  list(db,'SELECT id,starts_at,ends_at,mode,enabled FROM booking_slots WHERE starts_at>=? ORDER BY starts_at LIMIT 600',jstDay()),
  list(db,`SELECT r.id,r.slot_id,r.member_id,r.status,r.ticket_id,r.created_at,r.decline_reason,s.starts_at,m.display_name AS member_name FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id JOIN members m ON m.id=r.member_id WHERE s.starts_at>=? ORDER BY s.starts_at LIMIT 500`,jstDay()),
  list(db,'SELECT * FROM tickets ORDER BY created_at DESC LIMIT 500'),
@@ -269,7 +269,9 @@ async function route(ctx,path,data){
      return json({ok:true,id});
    }
    const id='SR-'+uid().slice(0,8).toUpperCase();
-   await db.batch([query(db,`INSERT INTO members(id,display_name,name_kana,email,phone,joined_on,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'active',?,?)`,id,name,kana,email||null,phone||null,jstDay(),now(),now()),audit(db,actor,'create_member','member',id)]);
+   const nextNumber=await one(db,"SELECT printf('%05d',COALESCE(MAX(CAST(member_number AS INTEGER)),0)+1) AS member_number FROM members");
+   if(!nextNumber||Number(nextNumber.member_number)>99999)return fail('会員番号の発行上限に達しました');
+   await db.batch([query(db,`INSERT INTO members(id,member_number,display_name,name_kana,email,phone,joined_on,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'active',?,?)`,id,nextNumber.member_number,name,kana,email||null,phone||null,jstDay(),now(),now()),audit(db,actor,'create_member','member',id)]);
    return json({ok:true,id});
  }
  if(path==='admin/invites'&&method==='POST'){
@@ -774,18 +776,26 @@ BEGIN
     SELECT lower(hex(randomblob(16))),ticket_id,NEW.booking_id,1,'booking_canceled',NEW.canceled_by,NEW.created_at
     FROM booking_requests WHERE id=NEW.booking_id AND NEW.return_ticket=1 AND ticket_id IS NOT NULL;
 END;`
+  `ALTER TABLE members ADD COLUMN member_number TEXT`,
+  `UPDATE members SET member_number = printf('%05d', (SELECT COUNT(*) FROM members AS m2 WHERE m2.created_at < members.created_at OR (m2.created_at = members.created_at AND m2.id <= members.id))) WHERE member_number IS NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS members_member_number_unique ON members(member_number)`,
 ];
 
 async function ensureProductionSchema(db) {
-  const marker = "SELECT name FROM sqlite_master WHERE type='table' AND name='shiftrex_schema_002_complete'";
+  const marker = "SELECT name FROM sqlite_master WHERE type='table' AND name='shiftrex_schema_003_complete'";
   if (await db.prepare(marker).first()) return;
   const {results} = await db.prepare("PRAGMA table_info(staff_accounts)").all();
   const columns = new Set(results.map(column => column.name));
+  const memberInfo = await db.prepare("PRAGMA table_info(members)").all();
+  const memberColumns = new Set(memberInfo.results.map(column => column.name));
   const pending = bootstrapStatements.filter(sql => {
-    const addition = /^ALTER TABLE staff_accounts ADD COLUMN (\w+)/.exec(sql);
-    return !addition || !columns.has(addition[1]);
+    const staffAddition = /^ALTER TABLE staff_accounts ADD COLUMN (\w+)/.exec(sql);
+    const memberAddition = /^ALTER TABLE members ADD COLUMN (\w+)/.exec(sql);
+    if (staffAddition) return !columns.has(staffAddition[1]);
+    if (memberAddition) return !memberColumns.has(memberAddition[1]);
+    return true;
   });
-  pending.push("CREATE TABLE IF NOT EXISTS shiftrex_schema_002_complete (version INTEGER PRIMARY KEY)");
+  pending.push("CREATE TABLE IF NOT EXISTS shiftrex_schema_003_complete (version INTEGER PRIMARY KEY)");
   try {
     await db.batch(pending.map(sql => db.prepare(sql)));
   } catch (error) {
