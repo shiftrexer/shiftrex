@@ -529,3 +529,5 @@ body[data-app="member"] .home-book-button:after{
 /* Keep the admin refresh control at the upper-right of the header. */
 .mast:not(.mast-member) .secure-tag{order:0}
 .mast:not(.mast-member) .refresh-button{order:1;margin-left:auto}
+
+.member-detail-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding:14px 2px 8px;border-top:1px solid var(--line);font-size:13px}.member-detail-line strong{font-size:13px}
