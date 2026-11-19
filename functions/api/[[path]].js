@@ -329,6 +329,12 @@ async function route(ctx,path,data){
    if(!requireManager(actor))return fail('操作権限がありません',403);
    const name=field(data.name,100),price=Number(data.price),count=Number(data.count),days=data.days==null?null:Number(data.days),monthReq=data.monthRequired===true;
    if(!name||!money(price)||!Number.isInteger(count)||count<0||count>1000||(days!=null&&(!Number.isInteger(days)||days<1||days>3650)))return fail('メニュー入力を確認してください');
+   if(data.id){
+     const id=field(data.id,100),existing=await one(db,'SELECT id FROM menus WHERE id=? AND deleted_at IS NULL',id);
+     if(!existing)return fail('変更するメニューが見つかりません',404);
+     await db.batch([query(db,'UPDATE menus SET name=?,standard_price_yen=?,ticket_count=?,validity_days=?,target_month_required=?,updated_at=? WHERE id=?',name,price,count,days,monthReq?1:0,now(),id),audit(db,actor,'update_menu','menu',id,{name,price,count,days,monthReq})]);
+     return json({ok:true,id});
+   }
    const id=uid();await db.batch([query(db,`INSERT INTO menus(id,name,standard_price_yen,ticket_count,validity_days,target_month_required,hidden,created_at,updated_at) VALUES(?,?,?,?,?,?,0,?,?)`,id,name,price,count,days,monthReq?1:0,now(),now()),audit(db,actor,'create_menu','menu',id)]);return json({ok:true,id});
  }
  if(path==='admin/purchase-payment'&&method==='POST'){
