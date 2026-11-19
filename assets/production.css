@@ -516,3 +516,9 @@ body[data-app="member"] .home-book-button:after{
 .calendar-track>.calendar-preview{position:absolute;inset:0 auto auto 0;width:100%;z-index:2;pointer-events:none;transform:translate3d(100%,0,0);background:inherit}
 .calendar-grid.is-dragging,.calendar-preview{transition:none!important;will-change:transform}
 .calendar-grid.is-settling{transition:transform .18s cubic-bezier(.22,.72,.25,1)!important}
+
+/* Menu rows are real buttons; reset native button chrome to match list rows. */
+.menu-edit-item{width:100%;min-width:0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;}
+.menu-edit-item:focus-visible{outline:2px solid #fff;outline-offset:-2px;border-radius:8px;}
+.menu-edit-item:active{background:#ffffff0a;}
+.menu-edit-item .line-text{flex:1;min-width:0;}
