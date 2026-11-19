@@ -522,3 +522,6 @@ body[data-app="member"] .home-book-button:after{
 .menu-edit-item:focus-visible{outline:2px solid #fff;outline-offset:-2px;border-radius:8px;}
 .menu-edit-item:active{background:#ffffff0a;}
 .menu-edit-item .line-text{flex:1;min-width:0;}
+
+/* Editable member rows */
+.member-admin-row{display:flex;align-items:center;gap:10px;min-width:0}.member-edit-trigger{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:1;min-width:0;padding:0;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer;appearance:none;-webkit-appearance:none}.member-edit-trigger .line-text{flex:1;min-width:0}.member-row-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
