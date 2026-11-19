@@ -11,6 +11,7 @@ const formBytes=s=>new TextEncoder().encode(s);
 const b64url=a=>btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const validDay=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
 const validMonth=s=>typeof s==='string'&&/^\d{4}-(0[1-9]|1[0-2])$/.test(s);
+const monthOffsetForApi=m=>{const d=new Date(m+'-01T00:00:00Z');d.setUTCMonth(d.getUTCMonth()+1);return d.toISOString().slice(0,10)};
 const jstDay=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const expAt=hours=>new Date(Date.now()+hours*3600000).toISOString();
 const cookie=(token,days=14)=>`sr_session=${token}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${days*86400}`;
@@ -89,18 +90,19 @@ async function slotAllowed(db,slotId,memberId){
 }
 async function adminState(db){
  await ensureBodyRecords(db);
- const [members,slots,requests,tickets,menus,purchases,payments,notices,records]=await Promise.all([
+ const [members,slots,requests,tickets,menus,bookingMenus,purchases,payments,notices,records]=await Promise.all([
  list(db,'SELECT id,member_number,display_name,name_kana,phone,email,joined_on,status,paused_from,paused_through,leave_on,CASE WHEN line_subject IS NULL THEN 0 ELSE 1 END AS line_linked FROM members WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 300'),
  list(db,'SELECT id,starts_at,ends_at,mode,enabled FROM booking_slots WHERE starts_at>=? ORDER BY starts_at LIMIT 600',jstDay()),
  list(db,`SELECT r.id,r.slot_id,r.member_id,r.status,r.ticket_id,r.created_at,r.decline_reason,s.starts_at,m.display_name AS member_name FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id JOIN members m ON m.id=r.member_id WHERE s.starts_at>=? ORDER BY s.starts_at LIMIT 500`,jstDay()),
  list(db,'SELECT * FROM tickets ORDER BY created_at DESC LIMIT 500'),
  list(db,'SELECT id,name,standard_price_yen,ticket_count,validity_days,target_month_required,hidden FROM menus WHERE deleted_at IS NULL ORDER BY created_at LIMIT 100'),
+ list(db,'SELECT id,name,duration_minutes,active FROM booking_menus ORDER BY created_at LIMIT 100'),
  list(db,'SELECT id,member_id,menu_id,menu_name_at_sale,purchased_on,target_month,actual_price_yen,canceled_at FROM purchases ORDER BY created_at DESC LIMIT 300'),
  list(db,'SELECT id,purchase_id,paid_on,amount_yen,method_name_snapshot FROM payments WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 500'),
  list(db,'SELECT id,title,body,published_at FROM notices WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 50'),
  list(db,'SELECT r.id,r.member_id,m.display_name,r.record_date,r.weight_kg,r.body_fat_pct,r.updated_at FROM body_records r JOIN members m ON m.id=r.member_id ORDER BY r.record_date DESC LIMIT 1000')
  ]);
- return{members,slots,requests,tickets,menus,purchases,payments,notices,records};
+ return{members,slots,requests,tickets,menus,bookingMenus,purchases,payments,notices,records};
 }
 async function ensureBodyRecords(db){
  await db.prepare(`CREATE TABLE IF NOT EXISTS body_records (
@@ -117,16 +119,17 @@ async function ensureBodyRecords(db){
 }
 async function memberState(db,actor){
  await ensureBodyRecords(db);
- const [slots,bookings,tickets,notices,records]=await Promise.all([
+ const [slots,bookings,tickets,notices,records,bookingMenus]=await Promise.all([
  list(db,`SELECT s.id,s.starts_at,s.ends_at,s.mode,s.enabled,CASE WHEN EXISTS(SELECT 1 FROM booking_locks l WHERE l.block_start=substr(s.starts_at,1,16)) THEN 1 ELSE 0 END AS booked
  FROM booking_slots s JOIN published_months p ON p.month_key=substr(s.starts_at,1,7)
- WHERE s.starts_at>=? AND s.starts_at<? ORDER BY s.starts_at LIMIT 1000`,jstDay(),new Date(Date.now()+95*86400000).toISOString().slice(0,10)),
+ WHERE s.starts_at>=? AND s.starts_at<? ORDER BY s.starts_at LIMIT 5000`,jstDay(),new Date(Date.now()+95*86400000).toISOString().slice(0,10)),
  list(db,`SELECT r.id,r.status,r.slot_id,r.decline_reason,r.created_at,s.starts_at FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id WHERE r.member_id=? ORDER BY r.created_at DESC,s.starts_at DESC,r.id DESC LIMIT 150`,actor.id),
  list(db,`SELECT t.id,t.initial_count,t.available_count,t.valid_from,t.expires_on FROM tickets t WHERE t.member_id=? AND t.disabled_at IS NULL ORDER BY COALESCE(t.expires_on,'9999') LIMIT 100`,actor.id),
  list(db,`SELECT id,title,body,published_at FROM notices WHERE deleted_at IS NULL AND published_at IS NOT NULL AND published_at<=? AND (audience='all' OR id IN(SELECT notice_id FROM notice_recipients WHERE member_id=?)) ORDER BY published_at DESC LIMIT 30`,now(),actor.id),
- list(db,'SELECT id,member_id,record_date,weight_kg,body_fat_pct,created_at,updated_at FROM body_records WHERE member_id=? ORDER BY record_date DESC LIMIT 365',actor.id)
+ list(db,'SELECT id,member_id,record_date,weight_kg,body_fat_pct,created_at,updated_at FROM body_records WHERE member_id=? ORDER BY record_date DESC LIMIT 365',actor.id),
+ list(db,'SELECT id,name,duration_minutes FROM booking_menus WHERE active=1 ORDER BY created_at LIMIT 100')
  ]);
- return{member:{id:actor.id,name:actor.name},slots,bookings,tickets,notices,records};
+ return{member:{id:actor.id,name:actor.name},slots,bookings,tickets,notices,records,bookingMenus};
 }
 
 async function route(ctx,path,data){
@@ -232,12 +235,20 @@ async function route(ctx,path,data){
  }
  if(path==='member/bookings'&&method==='POST'){
    if(actor?.type!=='member')return fail('LINEログインが必要です',401);
-   const slotId=field(data.slotId,80),slot=await slotAllowed(db,slotId,actor.id);
-   if(!slot)return fail('予約できない枠です',409);
+   const slotId=field(data.slotId,80),menuId=field(data.bookingMenuId,80),menu=await one(db,'SELECT id,name,duration_minutes FROM booking_menus WHERE id=? AND active=1',menuId),slot=await slotAllowed(db,slotId,actor.id);
+   if(!slot||!menu)return fail('予約メニューまたは予約枠が見つかりません',409);
+   const blocks=menu.duration_minutes/30,required=[];
+   for(let i=0;i<blocks;i++){
+     const start=new Date(Date.parse(slot.starts_at+':00+09:00')+i*1800000).toLocaleString('sv-SE',{timeZone:'Asia/Tokyo',hour12:false}).replace(' ','T').slice(0,16);
+     const block=await one(db,'SELECT id,mode,enabled FROM booking_slots WHERE starts_at=? AND enabled=1 ORDER BY created_at DESC LIMIT 1',start);
+     if(!block||!await one(db,'SELECT month_key FROM published_months WHERE month_key=?',start.slice(0,7)))return fail('メニューの所要時間分の予約枠が連続していません',409);
+     if(await one(db,'SELECT block_start FROM booking_locks WHERE block_start=?',start))return fail('選択した時間帯は予約済みです',409);
+     required.push(block);
+   }
    if(await one(db,`SELECT id FROM booking_requests WHERE member_id=? AND slot_id=? AND status IN ('pending','confirmed','done','absent')`,actor.id,slotId))return fail('申請済みの枠です',409);
    const t=await availableTicket(db,actor.id,slotId);if(!t)return fail('予約日に有効なチケットがありません',409);
-   const status=slot.mode==='approval'?'pending':'confirmed',id=uid();
-   await db.batch([query(db,`INSERT INTO booking_requests(id,slot_id,member_id,status,ticket_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`,id,slotId,actor.id,status,status==='confirmed'?t.id:null,now(),now()),audit(db,actor,'create_booking','booking',id,{status})]);
+   const status=required.some(b=>b.mode==='approval')?'pending':'confirmed',id=uid();
+   await db.batch([query(db,`INSERT INTO booking_requests(id,slot_id,member_id,status,ticket_id,booking_menu_id,duration_minutes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,id,slotId,actor.id,status,status==='confirmed'?t.id:null,menuId,menu.duration_minutes,now(),now()),audit(db,actor,'create_booking','booking',id,{status,menuId,durationMinutes:menu.duration_minutes})]);
    return json({ok:true,id,status});
  }
  if(path==='member/withdraw'&&method==='POST'){
@@ -312,13 +323,55 @@ async function route(ctx,path,data){
    ]);
    return json({ok:true});
  }
+ if(path==='admin/booking-menus'&&method==='POST'){
+   if(!requireManager(actor))return fail('操作権限がありません',403);
+   const id=field(data.id,80),name=field(data.name,100),duration=Number(data.durationMinutes);
+   if(!name||!Number.isInteger(duration)||duration<30||duration>480||duration%30!==0)return fail('メニュー名と所要時間（30分単位）を確認してください');
+   if(id){
+     if(!await one(db,'SELECT id FROM booking_menus WHERE id=?',id))return fail('予約メニューが見つかりません',404);
+     await db.batch([query(db,'UPDATE booking_menus SET name=?,duration_minutes=?,updated_at=? WHERE id=?',name,duration,now(),id),audit(db,actor,'update_booking_menu','booking_menu',id,{name,duration})]);
+     return json({ok:true,id});
+   }
+   const nextId=uid();
+   await db.batch([query(db,'INSERT INTO booking_menus(id,name,duration_minutes,active,created_at,updated_at) VALUES(?,?,?,1,?,?)',nextId,name,duration,now(),now()),audit(db,actor,'create_booking_menu','booking_menu',nextId,{name,duration})]);
+   return json({ok:true,id:nextId});
+ }
  if(path==='admin/slots'&&method==='POST'){
    if(!requireAdmin(actor))return fail('操作権限がありません',403);
    const day=field(data.date,10),time=field(data.time,5),mode=field(data.mode,15);
    if(!validDay(day)||!/^([01]\d|2[0-3]):(00|30)$/.test(time)||!['instant','approval'].includes(mode))return fail('日時または予約方式が不正です');
-   const start=day+'T'+time,ends=new Date(Date.parse(start+':00+09:00')+3600000).toLocaleString('sv-SE',{timeZone:'Asia/Tokyo',hour12:false}).replace(' ','T').slice(0,16);
+   const start=day+'T'+time,ends=new Date(Date.parse(start+':00+09:00')+1800000).toLocaleString('sv-SE',{timeZone:'Asia/Tokyo',hour12:false}).replace(' ','T').slice(0,16);
    if(start.slice(0,10)<jstDay())return fail('過去の日付は登録できません');
    const id=uid();await db.batch([query(db,`INSERT INTO booking_slots(id,starts_at,ends_at,mode,enabled,created_at,updated_at) VALUES(?,?,?,?,1,?,?)`,id,start,ends,mode,now(),now()),audit(db,actor,'create_slot','slot',id)]);return json({ok:true,id});
+ }
+ if(path==='admin/slots/month'&&method==='GET'){
+   if(!requireAdmin(actor))return fail('管理者ログインが必要です',401);
+   const month=new URL(req.url).searchParams.get('month')||'';
+   if(!validMonth(month))return fail('対象月が不正です');
+   return json({month,slots:await list(db,'SELECT id,starts_at,ends_at,mode,enabled FROM booking_slots WHERE starts_at>=? AND starts_at<? ORDER BY starts_at',month+'-01',monthOffsetForApi(month))});
+ }
+ if(path==='admin/slots/month'&&method==='POST'){
+   if(!requireAdmin(actor))return fail('操作権限がありません',403);
+   const month=field(data.month,7),changes=Array.isArray(data.changes)?data.changes:[];
+   if(!validMonth(month)||changes.length>1488)return fail('対象月または変更数が不正です');
+   const actions=[];
+   for(const item of changes){
+     const day=field(item.day,10),time=field(item.time,5),state=field(item.state,2);
+     if(!validDay(day)||day.slice(0,7)!==month||!/^([01]\\d|2[0-3]):(00|30)$/.test(time)||!['－','○','△','×'].includes(state))return fail('予約枠の変更内容が不正です');
+     const start=day+'T'+time,existing=await one(db,'SELECT id FROM booking_slots WHERE starts_at=? ORDER BY created_at DESC LIMIT 1',start);
+     if(existing&&await one(db,"SELECT id FROM booking_requests WHERE slot_id=? AND status IN ('pending','confirmed','done','absent') LIMIT 1",existing.id))return fail('予約・申請が入っている枠は変更できません。更新してご確認ください',409);
+     if(existing&&await one(db,'SELECT booking_id FROM booking_locks WHERE block_start=?',start))return fail('予約済みの時間帯は変更できません',409);
+     if(state==='－'){
+       if(existing)actions.push(query(db,'DELETE FROM booking_slots WHERE id=? AND NOT EXISTS(SELECT 1 FROM booking_requests WHERE slot_id=?)',existing.id,existing.id));
+     }else{
+       const end=new Date(Date.parse(start+':00+09:00')+1800000).toLocaleString('sv-SE',{timeZone:'Asia/Tokyo',hour12:false}).replace(' ','T').slice(0,16);
+       if(existing)actions.push(query(db,'UPDATE booking_slots SET ends_at=?,mode=?,enabled=?,updated_at=? WHERE id=?',end,state==='△'?'approval':'instant',state==='×'?0:1,now(),existing.id));
+       else actions.push(query(db,'INSERT INTO booking_slots(id,starts_at,ends_at,mode,enabled,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',uid(),start,end,state==='△'?'approval':'instant',state==='×'?0:1,now(),now()));
+     }
+   }
+   if(actions.length)await db.batch(actions);
+   await audit(db,actor,'update_month_slots','month',month,{changed:changes.length}).run();
+   return json({ok:true,changed:changes.length});
  }
  if(path==='admin/publish'&&method==='POST'){
    if(!requireManager(actor))return fail('操作権限がありません',403);
@@ -797,6 +850,45 @@ END;`,
   `CREATE UNIQUE INDEX IF NOT EXISTS members_member_number_unique ON members(member_number)`,
 ];
 
+async function ensureBookingV2Schema(db) {
+  const info = await db.prepare("PRAGMA table_info(booking_requests)").all();
+  const columns = new Set((info.results || []).map(column => column.name));
+  const statements = [];
+  if (!columns.has('booking_menu_id')) statements.push("ALTER TABLE booking_requests ADD COLUMN booking_menu_id TEXT");
+  if (!columns.has('duration_minutes')) statements.push("ALTER TABLE booking_requests ADD COLUMN duration_minutes INTEGER NOT NULL DEFAULT 60");
+  statements.push(`CREATE TABLE IF NOT EXISTS booking_menus (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL,
+    duration_minutes INTEGER NOT NULL CHECK(duration_minutes BETWEEN 30 AND 480 AND duration_minutes % 30 = 0),
+    active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  )`);
+  statements.push("DROP TRIGGER IF EXISTS booking_confirm_insert","DROP TRIGGER IF EXISTS booking_confirm_update");
+  const lockInsert = `INSERT INTO booking_locks(block_start,booking_id)
+    SELECT strftime('%Y-%m-%dT%H:%M',s.starts_at,'+'||(n*30)||' minutes'),NEW.id
+    FROM booking_slots s CROSS JOIN (
+      SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
+      UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7
+      UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
+      UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15
+    ) blocks WHERE s.id=NEW.slot_id AND n<MAX(1,CAST(NEW.duration_minutes/30 AS INTEGER));`;
+  const common = `  SELECT CASE WHEN NEW.ticket_id IS NULL THEN RAISE(ABORT,'ticket_required') END;
+    SELECT CASE WHEN NOT EXISTS (
+      SELECT 1 FROM tickets t JOIN booking_slots s ON s.id=NEW.slot_id
+      WHERE t.id=NEW.ticket_id AND t.member_id=NEW.member_id AND t.disabled_at IS NULL AND t.available_count>0
+        AND substr(s.starts_at,1,10)>=t.valid_from AND (t.expires_on IS NULL OR substr(s.starts_at,1,10)<=t.expires_on)
+    ) THEN RAISE(ABORT,'ticket_invalid_or_expired') END;
+    UPDATE tickets SET available_count=available_count-1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=NEW.ticket_id;
+    ${lockInsert}
+    INSERT INTO ticket_events(id,ticket_id,booking_id,amount_delta,reason,created_by,created_at)
+      VALUES(lower(hex(randomblob(16))),NEW.ticket_id,NEW.id,-1,'booking_confirmed','system',strftime('%Y-%m-%dT%H:%M:%fZ','now'));`;
+  statements.push(`CREATE TRIGGER booking_confirm_insert AFTER INSERT ON booking_requests WHEN NEW.status='confirmed' BEGIN
+    ${common}
+  END`);
+  statements.push(`CREATE TRIGGER booking_confirm_update AFTER UPDATE OF status ON booking_requests WHEN NEW.status='confirmed' AND OLD.status='pending' BEGIN
+    ${common.replace("'booking_confirmed'","'booking_approved'")}
+  END`);
+  await db.batch(statements.map(sql => db.prepare(sql)));
+}
 async function ensureProductionSchema(db) {
   const marker = "SELECT name FROM sqlite_master WHERE type='table' AND name='shiftrex_schema_004_complete'";
   if (await db.prepare(marker).first()) return;
@@ -826,6 +918,7 @@ export async function onRequest(ctx){
  if(!env.DB)return fail('D1データベース未接続：Cloudflare PagesのDBバインディングを設定してください',503);
  try{
    await ensureProductionSchema(env.DB);
+   await ensureBookingV2Schema(env.DB);
  }catch(e){return fail('データベース初期化が未完了です。D1の接続設定とログを確認してください',503);}
  try{
    if(path==='auth/line/start'&&req.method==='GET')return await oauthStart(ctx);
