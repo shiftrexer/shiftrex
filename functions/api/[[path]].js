@@ -90,7 +90,7 @@ async function slotAllowed(db,slotId,memberId){
 async function adminState(db){
  await ensureBodyRecords(db);
  const [members,slots,requests,tickets,menus,purchases,payments,notices,records]=await Promise.all([
- list(db,'SELECT id,member_number,display_name,name_kana,phone,email,joined_on,status,paused_from,paused_through,leave_on,CASE WHEN line_subject IS NULL THEN 0 ELSE 1 END AS line_linked FROM members ORDER BY created_at DESC LIMIT 300'),
+ list(db,'SELECT id,member_number,display_name,name_kana,phone,email,joined_on,status,paused_from,paused_through,leave_on,CASE WHEN line_subject IS NULL THEN 0 ELSE 1 END AS line_linked FROM members WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 300'),
  list(db,'SELECT id,starts_at,ends_at,mode,enabled FROM booking_slots WHERE starts_at>=? ORDER BY starts_at LIMIT 600',jstDay()),
  list(db,`SELECT r.id,r.slot_id,r.member_id,r.status,r.ticket_id,r.created_at,r.decline_reason,s.starts_at,m.display_name AS member_name FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id JOIN members m ON m.id=r.member_id WHERE s.starts_at>=? ORDER BY s.starts_at LIMIT 500`,jstDay()),
  list(db,'SELECT * FROM tickets ORDER BY created_at DESC LIMIT 500'),
@@ -274,6 +274,21 @@ async function route(ctx,path,data){
    await db.batch([query(db,`INSERT INTO members(id,member_number,display_name,name_kana,email,phone,joined_on,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'active',?,?)`,id,nextNumber.member_number,name,kana,email||null,phone||null,jstDay(),now(),now()),audit(db,actor,'create_member','member',id)]);
    return json({ok:true,id});
  }
+ if(path==='admin/member-delete'&&method==='POST'){
+   if(!requireOwner(actor))return fail('オーナーのみ操作できます',403);
+   const mid=field(data.memberId,100);
+   if(data.confirm!=='会員削除')return fail('削除確認が完了していません',400);
+   const member=await one(db,'SELECT id,display_name,line_subject FROM members WHERE id=? AND deleted_at IS NULL',mid);
+   if(!member)return fail('会員が見つかりません',404);
+   const when=now();
+   await db.batch([
+     query(db,"UPDATE members SET deleted_at=?,status='left',leave_on=COALESCE(leave_on,?),line_subject=NULL,updated_at=? WHERE id=? AND deleted_at IS NULL",when,jstDay(),when,mid),
+     query(db,"DELETE FROM auth_sessions WHERE user_type='member' AND user_id=?",mid),
+     query(db,"UPDATE member_invites SET revoked_at=? WHERE member_id=? AND consumed_at IS NULL AND revoked_at IS NULL",when,mid),
+     audit(db,actor,'delete_member','member',mid,{display_name:member.display_name})
+   ]);
+   return json({ok:true});
+ }
  if(path==='admin/invites'&&method==='POST'){
    if(!requireManager(actor))return fail('操作権限がありません',403);
    const mid=field(data.memberId,100),m=await one(db,"SELECT id,line_subject,status FROM members WHERE id=?",mid);
@@ -424,7 +439,7 @@ async function oauthCallback(ctx){
  const verify=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:tokens.id_token,client_id:env.LINE_CHANNEL_ID,nonce:row.nonce})});
  if(!verify.ok)return redirect('/?login=failed',{'set-cookie':expireOAuth});
  const profile=await verify.json();if(!profile.sub||profile.aud!==env.LINE_CHANNEL_ID||profile.iss!=='https://access.line.me'||profile.nonce!==row.nonce)return redirect('/?login=failed',{'set-cookie':expireOAuth});
- let member=await one(db,"SELECT id,status FROM members WHERE line_subject=?",profile.sub);
+ let member=await one(db,"SELECT id,status FROM members WHERE line_subject=? AND deleted_at IS NULL",profile.sub);
  if(!member&&row.invite_hash){
    const invite=await one(db,`SELECT i.* FROM member_invites i JOIN members m ON m.id=i.member_id WHERE i.token_sha256=? AND i.consumed_at IS NULL AND i.revoked_at IS NULL AND i.expires_at>? AND m.line_subject IS NULL AND m.status='active'`,row.invite_hash,now());
    if(!invite)return redirect('/?login=invite-invalid',{'set-cookie':expireOAuth});
@@ -777,12 +792,13 @@ BEGIN
     FROM booking_requests WHERE id=NEW.booking_id AND NEW.return_ticket=1 AND ticket_id IS NOT NULL;
 END;`
   `ALTER TABLE members ADD COLUMN member_number TEXT`,
+  `ALTER TABLE members ADD COLUMN deleted_at TEXT`,
   `UPDATE members SET member_number = printf('%05d', (SELECT COUNT(*) FROM members AS m2 WHERE m2.created_at < members.created_at OR (m2.created_at = members.created_at AND m2.id <= members.id))) WHERE member_number IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS members_member_number_unique ON members(member_number)`,
 ];
 
 async function ensureProductionSchema(db) {
-  const marker = "SELECT name FROM sqlite_master WHERE type='table' AND name='shiftrex_schema_003_complete'";
+  const marker = "SELECT name FROM sqlite_master WHERE type='table' AND name='shiftrex_schema_004_complete'";
   if (await db.prepare(marker).first()) return;
   const {results} = await db.prepare("PRAGMA table_info(staff_accounts)").all();
   const columns = new Set(results.map(column => column.name));
@@ -795,7 +811,7 @@ async function ensureProductionSchema(db) {
     if (memberAddition) return !memberColumns.has(memberAddition[1]);
     return true;
   });
-  pending.push("CREATE TABLE IF NOT EXISTS shiftrex_schema_003_complete (version INTEGER PRIMARY KEY)");
+  pending.push("CREATE TABLE IF NOT EXISTS shiftrex_schema_004_complete (version INTEGER PRIMARY KEY)");
   try {
     await db.batch(pending.map(sql => db.prepare(sql)));
   } catch (error) {
