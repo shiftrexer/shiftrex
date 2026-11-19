@@ -574,3 +574,13 @@ body[data-app="member"] .home-book-button:after{
 /* LINE actions use LINE green. */
 .overlay:has(.member-detail-line) .modal button[data-action="invite"],
 .overlay:has(.member-detail-line) .modal button[data-action="unlink-line"]{background:#06C755!important;border:1px solid #06C755!important;color:#fff!important;}
+
+/* Dedicated five-digit member-number keypad in ticket management. */
+.member-number-picker{margin:4px 0 16px;padding:15px;background:#171a20;border:1px solid #383e49;border-radius:16px}
+.member-number-display{display:flex;align-items:center;justify-content:center;min-height:54px;margin-bottom:12px;padding:10px;border:1px solid #454c59;border-radius:11px;background:#0c0e12;color:#fff;font-size:24px;font-weight:800;letter-spacing:.22em;font-variant-numeric:tabular-nums}
+.member-number-keys{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.member-number-keys button{min-height:48px;border:1px solid #454b57;border-radius:10px;background:#252a32;color:#fff;font-size:19px;font-weight:750}
+.member-number-keys button.key-sub{font-size:13px;color:#c6cbd5}
+.member-number-picker>.button.main{margin-top:10px}
+.member-number-result{min-height:20px;margin-top:9px;text-align:center;color:#aeb5c2;font-size:12px;font-weight:700}
+.member-number-result.is-found{color:#7fe8ad}
