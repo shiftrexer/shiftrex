@@ -93,7 +93,7 @@ async function adminState(db){
  const [members,slots,requests,tickets,menus,bookingMenus,purchases,payments,notices,records]=await Promise.all([
  list(db,'SELECT id,member_number,display_name,name_kana,phone,email,joined_on,status,paused_from,paused_through,leave_on,CASE WHEN line_subject IS NULL THEN 0 ELSE 1 END AS line_linked FROM members WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 300'),
  list(db,'SELECT id,starts_at,ends_at,mode,enabled FROM booking_slots WHERE starts_at>=? ORDER BY starts_at LIMIT 600',jstDay()),
- list(db,`SELECT r.id,r.slot_id,r.member_id,r.status,r.ticket_id,r.created_at,r.decline_reason,s.starts_at,m.display_name AS member_name FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id JOIN members m ON m.id=r.member_id WHERE s.starts_at>=? ORDER BY s.starts_at LIMIT 500`,jstDay()),
+ list(db,`SELECT r.id,r.slot_id,r.member_id,r.status,r.ticket_id,r.created_at,r.decline_reason,r.duration_minutes,bm.name AS booking_menu_name,s.starts_at,m.display_name AS member_name FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id JOIN members m ON m.id=r.member_id LEFT JOIN booking_menus bm ON bm.id=r.booking_menu_id WHERE s.starts_at>=? ORDER BY s.starts_at LIMIT 500`,jstDay()),
  list(db,'SELECT * FROM tickets ORDER BY created_at DESC LIMIT 500'),
  list(db,'SELECT id,name,standard_price_yen,ticket_count,validity_days,target_month_required,hidden FROM menus WHERE deleted_at IS NULL ORDER BY created_at LIMIT 100'),
  list(db,'SELECT id,name,duration_minutes,active FROM booking_menus ORDER BY created_at LIMIT 100'),
@@ -123,7 +123,7 @@ async function memberState(db,actor){
  list(db,`SELECT s.id,s.starts_at,s.ends_at,s.mode,s.enabled,CASE WHEN EXISTS(SELECT 1 FROM booking_locks l WHERE l.block_start=substr(s.starts_at,1,16)) THEN 1 ELSE 0 END AS booked
  FROM booking_slots s JOIN published_months p ON p.month_key=substr(s.starts_at,1,7)
  WHERE s.starts_at>=? AND s.starts_at<? ORDER BY s.starts_at LIMIT 5000`,jstDay(),new Date(Date.now()+95*86400000).toISOString().slice(0,10)),
- list(db,`SELECT r.id,r.status,r.slot_id,r.decline_reason,r.created_at,s.starts_at FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id WHERE r.member_id=? ORDER BY r.created_at DESC,s.starts_at DESC,r.id DESC LIMIT 150`,actor.id),
+ list(db,`SELECT r.id,r.status,r.slot_id,r.decline_reason,r.created_at,r.duration_minutes,bm.name AS booking_menu_name,s.starts_at FROM booking_requests r JOIN booking_slots s ON s.id=r.slot_id LEFT JOIN booking_menus bm ON bm.id=r.booking_menu_id WHERE r.member_id=? ORDER BY r.created_at DESC,s.starts_at DESC,r.id DESC LIMIT 150`,actor.id),
  list(db,`SELECT t.id,t.initial_count,t.available_count,t.valid_from,t.expires_on FROM tickets t WHERE t.member_id=? AND t.disabled_at IS NULL ORDER BY COALESCE(t.expires_on,'9999') LIMIT 100`,actor.id),
  list(db,`SELECT id,title,body,published_at FROM notices WHERE deleted_at IS NULL AND published_at IS NOT NULL AND published_at<=? AND (audience='all' OR id IN(SELECT notice_id FROM notice_recipients WHERE member_id=?)) ORDER BY published_at DESC LIMIT 30`,now(),actor.id),
  list(db,'SELECT id,member_id,record_date,weight_kg,body_fat_pct,created_at,updated_at FROM body_records WHERE member_id=? ORDER BY record_date DESC LIMIT 365',actor.id),
@@ -389,7 +389,7 @@ async function route(ctx,path,data){
      const ticket=await availableTicket(db,r.member_id,r.slot_id);if(!ticket)return fail('実施日に有効なチケットがありません',409);
      await db.batch([
        query(db,`UPDATE booking_requests SET status='confirmed',ticket_id=?,updated_at=? WHERE id=? AND status='pending'`,ticket.id,now(),id),
-       query(db,`UPDATE booking_requests SET status='declined',updated_at=? WHERE id<>? AND status='pending' AND slot_id IN(SELECT id FROM booking_slots WHERE starts_at<? AND ends_at>?)`,now(),id,r.ends_at,r.starts_at)
+       query(db,`UPDATE booking_requests SET status='declined',updated_at=? WHERE id<>? AND status='pending' AND slot_id IN(SELECT s.id FROM booking_slots s JOIN booking_requests pending ON pending.slot_id=s.id WHERE s.starts_at<? AND datetime(s.starts_at,'+'||COALESCE(pending.duration_minutes,60)||' minutes')>?)`,now(),id,new Date(Date.parse(r.starts_at+':00+09:00')+Number(r.duration_minutes||60)*60000).toLocaleString('sv-SE',{timeZone:'Asia/Tokyo',hour12:false}).replace(' ','T').slice(0,16),r.starts_at)
      ]);
    }else return fail('承認・却下を選択してください');
    await audit(db,actor,decision+'booking','booking',id).run();return json({ok:true});
