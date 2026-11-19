@@ -531,3 +531,11 @@ body[data-app="member"] .home-book-button:after{
 .mast:not(.mast-member) .refresh-button{order:1;margin-left:auto}
 
 .member-detail-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding:14px 2px 8px;border-top:1px solid var(--line);font-size:13px}.member-detail-line strong{font-size:13px}
+
+/* Keep the member edit dialog contained and aligned on narrow screens. */
+.overlay:has(.member-detail-line){align-items:center;padding: max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));box-sizing:border-box}
+.overlay:has(.member-detail-line) .modal{width:100%;max-width:520px;max-height:calc(100dvh - max(24px,env(safe-area-inset-top)) - max(24px,env(safe-area-inset-bottom)));box-sizing:border-box;border-radius:22px;padding:22px 18px calc(22px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"]{width:100%;min-width:0;max-width:100%;gap:12px}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] label{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] input,.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] select{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+.overlay:has(.member-detail-line) .modal>.button.ghost{width:100%;max-width:100%;box-sizing:border-box}
