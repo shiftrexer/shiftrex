@@ -610,3 +610,22 @@ form[data-form="manual-ticket"]{width:100%;min-width:0;max-width:100%;box-sizing
 form[data-form="manual-ticket"]>label{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
 form[data-form="manual-ticket"]>label input{display:block;width:100%;min-width:0;max-width:100%;inline-size:100%;min-inline-size:0;max-inline-size:100%;box-sizing:border-box}
 form[data-form="manual-ticket"]>label input[type="date"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;inline-size:100%;min-inline-size:0;max-inline-size:100%;box-sizing:border-box;padding-left:10px;padding-right:10px}
+
+
+/* SHIFTREX monthly 30-minute reservation matrix. */
+.slot-matrix-scroll{width:100%;max-width:100%;overflow:auto;border:1px solid #343a44;border-radius:12px;background:#11151a;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.slot-matrix{border-collapse:separate;border-spacing:2px;table-layout:fixed;width:max-content;min-width:100%;font-variant-numeric:tabular-nums}
+.slot-matrix th{position:sticky;top:0;z-index:2;min-width:30px;height:31px;padding:2px 3px;background:#252b34;color:#cbd2dc;font-size:10px;text-align:center;font-weight:700}
+.slot-matrix th:first-child{left:0;z-index:3;min-width:48px;width:48px}
+.slot-matrix td{width:30px;min-width:30px;height:30px;padding:0;background:#1b2027}
+.slot-cell{display:flex;align-items:center;justify-content:center;width:30px;height:30px;min-width:30px;aspect-ratio:1/1;padding:0;border:1px solid transparent;border-radius:7px;background:#242a32;color:#8b929d;font-size:16px;line-height:1;font-weight:800}
+.slot-cell.state-instant{background:#123d2b;border-color:#236d4a;color:#34c759}
+.slot-cell.state-approval{background:#49300e;border-color:#9b650f;color:#FF9F0A}
+.slot-cell.state-closed{background:#451c20;border-color:#8e343c;color:#ff453a}
+.slot-cell.state-unset{background:#252a31;border-color:#3c424c;color:#8b929d}
+.slot-cell:active{transform:scale(.92)}
+.slot-cell:focus-visible{outline:2px solid #fff;outline-offset:1px}
+.slot-matrix-legend{display:flex;flex-wrap:wrap;gap:8px 13px;margin:12px 0 5px;color:#aeb6c2;font-size:11px}
+.slot-matrix-legend span{white-space:nowrap}
+.booking-menu-label{display:block;margin:0 0 14px;color:#c1c6d1;font-size:12px;font-weight:700}
+.booking-menu-label select{margin-top:7px}
