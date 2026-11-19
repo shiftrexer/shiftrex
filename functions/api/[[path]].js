@@ -790,7 +790,7 @@ BEGIN
   INSERT INTO ticket_events(id,ticket_id,booking_id,amount_delta,reason,created_by,created_at)
     SELECT lower(hex(randomblob(16))),ticket_id,NEW.booking_id,1,'booking_canceled',NEW.canceled_by,NEW.created_at
     FROM booking_requests WHERE id=NEW.booking_id AND NEW.return_ticket=1 AND ticket_id IS NOT NULL;
-END;`
+END;`,
   `ALTER TABLE members ADD COLUMN member_number TEXT`,
   `ALTER TABLE members ADD COLUMN deleted_at TEXT`,
   `UPDATE members SET member_number = printf('%05d', (SELECT COUNT(*) FROM members AS m2 WHERE m2.created_at < members.created_at OR (m2.created_at = members.created_at AND m2.id <= members.id))) WHERE member_number IS NULL`,
