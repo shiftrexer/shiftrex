@@ -570,3 +570,7 @@ body[data-app="member"] .home-book-button:after{
 
 /* Make the destructive member action unmistakably red. */
 .overlay:has(.member-detail-line) .modal button[data-action="delete-member"]{background:#d32f2f!important;border:1px solid #d32f2f!important;color:#fff!important;}
+
+/* LINE actions use LINE green. */
+.overlay:has(.member-detail-line) .modal button[data-action="invite"],
+.overlay:has(.member-detail-line) .modal button[data-action="unlink-line"]{background:#06C755!important;border:1px solid #06C755!important;color:#fff!important;}
