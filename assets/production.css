@@ -562,3 +562,8 @@ body[data-app="member"] .home-book-button:after{
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row input,
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row select{display:block!important;inline-size:100%!important;width:100%!important;min-width:0!important;max-width:100%!important;box-sizing:border-box!important;margin:7px 0 0!important;padding-left:8px!important;padding-right:8px!important}
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row input[type="date"]{-webkit-appearance:none!important;appearance:none!important;text-align:center!important}
+
+
+/* Member edit: keep the leave-date field full-width and prevent iOS date-control overflow. */
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"]>label:has(input[name="leaveOn"]){display:block!important;flex:none!important;width:100%!important;min-width:0!important;max-width:100%!important;box-sizing:border-box!important;overflow:hidden!important}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"]>label:has(input[name="leaveOn"]) input[name="leaveOn"]{display:block!important;inline-size:100%!important;width:100%!important;min-inline-size:0!important;min-width:0!important;max-inline-size:100%!important;max-width:100%!important;box-sizing:border-box!important;-webkit-appearance:none!important;appearance:none!important;margin:7px 0 0!important;padding-left:8px!important;padding-right:8px!important}
