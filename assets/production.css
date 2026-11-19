@@ -544,3 +544,13 @@ body[data-app="member"] .home-book-button:after{
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:start;gap:10px!important;width:100%;min-width:0;max-width:100%}
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row>label{display:block!important;width:100%;min-width:0;max-width:100%;margin:0}
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row input,.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row select{width:100%;min-width:0;max-width:100%}
+
+
+/* Fix iOS Safari intrinsic sizing in the member edit form. */
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"]{min-width:0!important;max-width:100%!important;overflow:hidden}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"]>label,
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row,
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row>label{min-width:0!important;max-width:100%!important;box-sizing:border-box!important}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] input,
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] select{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;box-sizing:border-box!important;margin-left:0!important;margin-right:0!important}
+.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;column-gap:10px!important;overflow:hidden}
