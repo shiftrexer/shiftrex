@@ -181,7 +181,7 @@ function bookingsAdmin(){
    for(let i=0;i<48;i++){
      const time=String(Math.floor(i/2)).padStart(2,'0')+':'+(i%2?'30':'00');
      body+='<tr><th>'+time+'</th>';
-     for(const day of days){const state=stateAt(day,time),key=day+'|'+time,kind=state==='○'?'instant':state==='△'?'approval':state==='×'?'closed':'unset';body+='<td><button type="button" class="slot-cell state-'+kind+'" data-action="cycle-slot" data-id="'+key+'" data-state="'+state+'" aria-label="'+day+' '+time+' '+state+'">'+state+'</button></td>';}
+     for(const day of days){const state=stateAt(day,time),key=day+'|'+time,slot=slotMap.get(day+'T'+time),locked=!!(slot&&(slot.booked||slot.has_request)),kind=state==='○'?'instant':state==='△'?'approval':state==='×'?'closed':'unset';body+='<td><button type="button" class="slot-cell state-'+kind+'" data-action="cycle-slot" data-id="'+key+'" data-state="'+state+'" '+(locked?'disabled title="予約履歴があるため変更できません"':'')+' aria-label="'+day+' '+time+' '+state+'">'+state+'</button></td>';}
      body+='</tr>';
    }
    matrix='<div class="slot-matrix-scroll"><table class="slot-matrix">'+head+'<tbody>'+body+'</tbody></table></div><div class="slot-matrix-legend"><span>○ 即時確定</span><span>△ 承認制</span><span>× 受付不可</span><span>－ 未設定</span></div><button type="button" class="button main" data-action="save-month-slots" '+(Object.keys(view.slotEdits||{}).length?'':'disabled')+'>変更を保存（'+Object.keys(view.slotEdits||{}).length+'件）</button>';
