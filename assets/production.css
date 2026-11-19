@@ -538,7 +538,7 @@ body[data-app="member"] .home-book-button:after{
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"]{width:100%;min-width:0;max-width:100%;gap:12px}
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] label{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] input,.overlay:has(.member-detail-line) .modal form[data-form="member-edit"] select{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
-.overlay:has(.member-detail-line) .modal>.button.ghost{width:100%;max-width:100%;box-sizing:border-box}
+.overlay:has(.member-detail-line) .modal>.button.ghost{width:100%;max-width:100%;box-sizing:border-box};margin-top:5px!important
 
 /* Member edit: enforce two-column rows for contact and membership fields. */
 .overlay:has(.member-detail-line) .modal form[data-form="member-edit"] .member-edit-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:start;gap:10px!important;width:100%;min-width:0;max-width:100%}
