@@ -851,6 +851,8 @@ END;`,
 ];
 
 async function ensureBookingV2Schema(db) {
+  const marker = "SELECT name FROM sqlite_master WHERE type='table' AND name='shiftrex_schema_005_complete'";
+  if (await db.prepare(marker).first()) return;
   const info = await db.prepare("PRAGMA table_info(booking_requests)").all();
   const columns = new Set((info.results || []).map(column => column.name));
   const statements = [];
@@ -887,7 +889,12 @@ async function ensureBookingV2Schema(db) {
   statements.push(`CREATE TRIGGER booking_confirm_update AFTER UPDATE OF status ON booking_requests WHEN NEW.status='confirmed' AND OLD.status='pending' BEGIN
     ${common.replace("'booking_confirmed'","'booking_approved'")}
   END`);
-  await db.batch(statements.map(sql => db.prepare(sql)));
+  statements.push('CREATE TABLE IF NOT EXISTS shiftrex_schema_005_complete (version INTEGER PRIMARY KEY)');
+  try {
+    await db.batch(statements.map(sql => db.prepare(sql)));
+  } catch (error) {
+    if (!(await db.prepare(marker).first())) throw error;
+  }
 }
 async function ensureProductionSchema(db) {
   const marker = "SELECT name FROM sqlite_master WHERE type='table' AND name='shiftrex_schema_004_complete'";
