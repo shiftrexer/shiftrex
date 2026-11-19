@@ -603,3 +603,10 @@ form[data-form="purchase-payment"]>label input,
 form[data-form="purchase-payment"]>label select{display:block;width:100%;min-width:0;max-width:100%;inline-size:100%;min-inline-size:0;max-inline-size:100%;box-sizing:border-box}
 form[data-form="purchase-payment"]>label input[type="date"],
 form[data-form="purchase-payment"]>label input[type="month"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;inline-size:100%;min-inline-size:0;max-inline-size:100%;box-sizing:border-box;padding-left:10px;padding-right:10px}
+
+
+/* Keep manual ticket validity date controls inside the ticket-management panel on iOS. */
+form[data-form="manual-ticket"]{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+form[data-form="manual-ticket"]>label{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+form[data-form="manual-ticket"]>label input{display:block;width:100%;min-width:0;max-width:100%;inline-size:100%;min-inline-size:0;max-inline-size:100%;box-sizing:border-box}
+form[data-form="manual-ticket"]>label input[type="date"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;inline-size:100%;min-inline-size:0;max-inline-size:100%;box-sizing:border-box;padding-left:10px;padding-right:10px}
