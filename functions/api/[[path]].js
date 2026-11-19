@@ -261,6 +261,13 @@ async function route(ctx,path,data){
    if(!requireManager(actor))return fail('操作権限がありません',403);
    const name=field(data.name,100),kana=field(data.kana,100),email=field(data.email,254),phone=field(data.phone,30);
    if(!name)return fail('氏名を入力してください');
+   if(data.id){
+     const id=field(data.id,100),joined=field(data.joinedOn,10),status=field(data.status,10),pausedFrom=field(data.pausedFrom,10),pausedThrough=field(data.pausedThrough,10),leaveOn=field(data.leaveOn,10);
+     if(!await one(db,'SELECT id FROM members WHERE id=?',id))return fail('会員が見つかりません',404);
+     if(!validDay(joined)||!['active','paused','left'].includes(status)||(pausedFrom&&!validDay(pausedFrom))||(pausedThrough&&!validDay(pausedThrough))||(leaveOn&&!validDay(leaveOn))||(pausedFrom&&pausedThrough&&pausedThrough<pausedFrom))return fail('会員情報の日付または状態を確認してください');
+     await db.batch([query(db,'UPDATE members SET display_name=?,name_kana=?,phone=?,email=?,joined_on=?,status=?,paused_from=?,paused_through=?,leave_on=?,updated_at=? WHERE id=?',name,kana,phone||null,email||null,joined,status,pausedFrom||null,pausedThrough||null,leaveOn||null,now(),id),audit(db,actor,'update_member','member',id,{name,status,joined_on:joined})]);
+     return json({ok:true,id});
+   }
    const id='SR-'+uid().slice(0,8).toUpperCase();
    await db.batch([query(db,`INSERT INTO members(id,display_name,name_kana,email,phone,joined_on,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'active',?,?)`,id,name,kana,email||null,phone||null,jstDay(),now(),now()),audit(db,actor,'create_member','member',id)]);
    return json({ok:true,id});
