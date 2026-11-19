@@ -932,7 +932,10 @@ export async function onRequest(ctx){
  try{
    await ensureProductionSchema(env.DB);
    await ensureBookingV2Schema(env.DB);
- }catch(e){return fail('データベース初期化が未完了です。D1の接続設定とログを確認してください',503);}
+ }catch(e){
+   console.error('SHIFTREX schema initialization failed', {message:e?.message||String(e),stack:e?.stack||null});
+   return fail('データベース初期化が未完了です。D1の接続設定とログを確認してください',503);
+ }
  try{
    if(path==='auth/line/start'&&req.method==='GET')return await oauthStart(ctx);
    if(path==='auth/line/callback'&&req.method==='GET')return await oauthCallback(ctx);
