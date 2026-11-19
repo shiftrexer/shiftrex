@@ -865,6 +865,8 @@ async function ensureBookingV2Schema(db) {
     active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL
   )`);
+  statements.push("INSERT OR IGNORE INTO booking_menus(id,name,duration_minutes,active,created_at,updated_at) VALUES('default-personal-60','パーソナルトレーニング60分',60,1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))");
+  statements.push("INSERT OR IGNORE INTO booking_menus(id,name,duration_minutes,active,created_at,updated_at) VALUES('default-stretch-30','ストレッチ30分',30,1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))");
   statements.push("DROP TRIGGER IF EXISTS booking_confirm_insert","DROP TRIGGER IF EXISTS booking_confirm_update");
   const lockInsert = `INSERT INTO booking_locks(block_start,booking_id)
     SELECT strftime('%Y-%m-%dT%H:%M',s.starts_at,'+'||(n*30)||' minutes'),NEW.id
