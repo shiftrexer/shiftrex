@@ -458,9 +458,10 @@ async function route(ctx,path,data){
    if(ticket&&paid.amount<price)return fail('入金額が販売金額を下回るため変更できません。先に入金情報を調整してください');
    const actions=[query(db,'UPDATE purchases SET actual_price_yen=?,purchased_on=?,target_month=?,updated_at=? WHERE id=?',price,day,target||null,now(),id),audit(db,actor,'update_purchase','purchase',id,{price,date:day,targetMonth:target||null})];
    if(ticket){
-     const expiry=purchase.validity_days?new Date(Date.parse(day+'T00:00:00Z')+(purchase.validity_days-1)*86400000).toISOString().slice(0,10):null;
-     actions.push(query(db,'UPDATE tickets SET valid_from=?,expires_on=?,updated_at=? WHERE id=?',day,expiry,now(),ticket.id));
-     actions.push(audit(db,actor,'update_purchase_ticket','ticket',ticket.id,{valid_from:day,expires_on:expiry}));
+     const count=Number(data.count),validFrom=field(data.validFrom,10),expiresOn=field(data.expiresOn,10),used=ticket.initial_count-ticket.available_count;
+     if(!Number.isInteger(count)||count<1||count>1000||count<used||!validDay(validFrom)||(expiresOn&&(!validDay(expiresOn)||expiresOn<validFrom)))return fail('チケット回数または有効期間を確認してください');
+     actions.push(query(db,'UPDATE tickets SET initial_count=?,available_count=?,valid_from=?,expires_on=?,updated_at=? WHERE id=?',count,count-used,validFrom,expiresOn||null,now(),ticket.id));
+     actions.push(audit(db,actor,'update_purchase_ticket','ticket',ticket.id,{count,valid_from:validFrom,expires_on:expiresOn||null,used}));
    }else if(price===0||paid.amount>=price){await db.batch(actions);await issueTicket(db,id);return json({ok:true,id});}
    await db.batch(actions);return json({ok:true,id});
  }
