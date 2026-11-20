@@ -872,13 +872,9 @@ async function ensureBookingV2Schema(db) {
   statements.push("INSERT OR IGNORE INTO booking_menus(id,name,duration_minutes,active,created_at,updated_at) VALUES('default-stretch-30','ストレッチ30分',30,1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))");
   statements.push("DROP TRIGGER IF EXISTS booking_confirm_insert","DROP TRIGGER IF EXISTS booking_confirm_update");
   const lockInsert = `INSERT INTO booking_locks(block_start,booking_id)
-    SELECT strftime('%Y-%m-%dT%H:%M',s.starts_at,'+'||(n*30)||' minutes'),NEW.id
-    FROM booking_slots s CROSS JOIN (
-      SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
-      UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7
-      UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11
-      UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15
-    ) blocks WHERE s.id=NEW.slot_id AND n<MAX(1,CAST(NEW.duration_minutes/30 AS INTEGER));`;
+    SELECT strftime('%Y-%m-%dT%H:%M',s.starts_at,'+'||(CAST(blocks.value AS INTEGER)*30)||' minutes'),NEW.id
+    FROM booking_slots s CROSS JOIN json_each('[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]') blocks
+    WHERE s.id=NEW.slot_id AND CAST(blocks.value AS INTEGER)<MAX(1,CAST(NEW.duration_minutes/30 AS INTEGER));`;
   const common = `  SELECT CASE WHEN NEW.ticket_id IS NULL THEN RAISE(ABORT,'ticket_required') END;
     SELECT CASE WHEN NOT EXISTS (
       SELECT 1 FROM tickets t JOIN booking_slots s ON s.id=NEW.slot_id
