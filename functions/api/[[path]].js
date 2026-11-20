@@ -97,7 +97,7 @@ async function adminState(db){
  list(db,'SELECT * FROM tickets ORDER BY created_at DESC LIMIT 500'),
  list(db,'SELECT id,name,standard_price_yen,ticket_count,validity_days,target_month_required,hidden FROM menus WHERE deleted_at IS NULL ORDER BY created_at LIMIT 100'),
  list(db,'SELECT id,name,duration_minutes,active FROM booking_menus ORDER BY created_at LIMIT 100'),
- list(db,'SELECT id,member_id,menu_id,menu_name_at_sale,purchased_on,target_month,actual_price_yen,canceled_at FROM purchases ORDER BY created_at DESC LIMIT 300'),
+ list(db,`SELECT p.id,p.member_id,p.menu_id,p.menu_name_at_sale,p.purchased_on,p.target_month,p.actual_price_yen,p.canceled_at,m.display_name AS member_name,COALESCE((SELECT SUM(py.amount_yen) FROM payments py WHERE py.purchase_id=p.id AND py.deleted_at IS NULL),0) AS paid_amount FROM purchases p JOIN members m ON m.id=p.member_id ORDER BY p.created_at DESC LIMIT 300`),
  list(db,'SELECT id,purchase_id,paid_on,amount_yen,method_name_snapshot FROM payments WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 500'),
  list(db,'SELECT id,title,body,published_at FROM notices WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 50'),
  list(db,'SELECT r.id,r.member_id,m.display_name,r.record_date,r.weight_kg,r.body_fat_pct,r.updated_at FROM body_records r JOIN members m ON m.id=r.member_id ORDER BY r.record_date DESC LIMIT 1000')
@@ -447,6 +447,32 @@ async function route(ctx,path,data){
    if(!p||!money(amount)||amount===0||!validDay(date)||!method)return fail('入金情報を確認してください');
    await db.batch([query(db,`INSERT INTO payments(id,purchase_id,paid_on,amount_yen,method_name_snapshot,created_at) VALUES(?,?,?,?,?,?)`,uid(),id,date,amount,method,now()),audit(db,actor,'register_payment','purchase',id,{amount})]);
    await issueTicket(db,id);return json({ok:true});
+ }
+ if(path==='admin/purchase-update'&&method==='POST'){
+   if(!requireManager(actor))return fail('操作権限がありません',403);
+   const id=field(data.id,100),price=Number(data.price),day=field(data.date,10),target=field(data.targetMonth,7);
+   const purchase=await one(db,'SELECT p.*,m.ticket_count,m.validity_days,m.target_month_required FROM purchases p JOIN menus m ON m.id=p.menu_id WHERE p.id=? AND p.canceled_at IS NULL',id);
+   if(!purchase||!money(price)||!validDay(day)||(purchase.target_month_required&&!validMonth(target))||(!purchase.target_month_required&&target&&!validMonth(target)))return fail('購入内容を確認してください');
+   const ticket=await one(db,'SELECT * FROM tickets WHERE purchase_id=? AND disabled_at IS NULL',id);
+   const paid=await one(db,'SELECT COALESCE(SUM(amount_yen),0) AS amount FROM payments WHERE purchase_id=? AND deleted_at IS NULL',id);
+   if(ticket&&paid.amount<price)return fail('入金額が販売金額を下回るため変更できません。先に入金情報を調整してください');
+   const actions=[query(db,'UPDATE purchases SET actual_price_yen=?,purchased_on=?,target_month=?,updated_at=? WHERE id=?',price,day,target||null,now(),id),audit(db,actor,'update_purchase','purchase',id,{price,date:day,targetMonth:target||null})];
+   if(ticket){
+     const expiry=purchase.validity_days?new Date(Date.parse(day+'T00:00:00Z')+(purchase.validity_days-1)*86400000).toISOString().slice(0,10):null;
+     actions.push(query(db,'UPDATE tickets SET valid_from=?,expires_on=?,updated_at=? WHERE id=?',day,expiry,now(),ticket.id));
+     actions.push(audit(db,actor,'update_purchase_ticket','ticket',ticket.id,{valid_from:day,expires_on:expiry}));
+   }else if(price===0||paid.amount>=price){await db.batch(actions);await issueTicket(db,id);return json({ok:true,id});}
+   await db.batch(actions);return json({ok:true,id});
+ }
+ if(path==='admin/purchase-cancel'&&method==='POST'){
+   if(!requireManager(actor))return fail('操作権限がありません',403);
+   const id=field(data.id,100),purchase=await one(db,'SELECT id,canceled_at FROM purchases WHERE id=?',id);
+   if(!purchase||purchase.canceled_at)return fail('取り消せる購入履歴が見つかりません',404);
+   const ticket=await one(db,'SELECT * FROM tickets WHERE purchase_id=? AND disabled_at IS NULL',id);
+   if(ticket&&ticket.available_count!==ticket.initial_count)return fail('このチケットは既に使用されています。予約・消化履歴があるため販売取消できません',409);
+   const actions=[query(db,'UPDATE purchases SET canceled_at=?,updated_at=? WHERE id=? AND canceled_at IS NULL',now(),now(),id),query(db,'UPDATE payments SET deleted_at=? WHERE purchase_id=? AND deleted_at IS NULL',now(),id),audit(db,actor,'cancel_purchase','purchase',id,{ticketId:ticket?.id||null})];
+   if(ticket)actions.push(query(db,'UPDATE tickets SET disabled_at=?,updated_at=? WHERE id=?',now(),now(),ticket.id),audit(db,actor,'disable_purchase_ticket','ticket',ticket.id));
+   await db.batch(actions);return json({ok:true,id});
  }
  if(path==='admin/manual-ticket'&&method==='POST'){
    if(!requireManager(actor))return fail('操作権限がありません',403);
