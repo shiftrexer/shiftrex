@@ -632,3 +632,15 @@ form[data-form="manual-ticket"]>label input[type="date"]{-webkit-appearance:none
 
 .slot-cell:disabled{opacity:.48;cursor:not-allowed;transform:none}
 .slot-matrix-month{margin:10px 0;font-size:14px;font-weight:800;color:#e7ebf0}
+
+
+/* Admin navigation is placed in the upper-left header; member navigation stays at the bottom. */
+.mast-admin{height:68px;min-height:68px;padding:8px 12px;gap:8px;overflow:hidden}
+.admin-top-nav{display:flex;align-items:center;gap:3px;flex:1 1 auto;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;white-space:nowrap}
+.admin-top-nav::-webkit-scrollbar{display:none}
+.admin-top-tab{flex:0 0 auto;min-height:40px;padding:9px 9px;border:0;border-radius:10px;background:transparent;color:#a6abb6;font-size:12px;font-weight:750;white-space:nowrap}
+.admin-top-tab.active{background:#fff;color:#11131a}
+.mast-admin .refresh-button{order:1;flex:0 0 auto;margin-left:0}
+.mast-admin .secure-tag{display:none}
+.mast-admin+.surface{padding-top:18px}
+@media(max-width:380px){.mast-admin{padding-left:8px;padding-right:8px;gap:5px}.admin-top-nav{gap:1px}.admin-top-tab{padding-left:7px;padding-right:7px;font-size:11px}}
