@@ -64,7 +64,7 @@ function loginScreen(){
  content(`<section class="auth-card"><span class="logo-large">SR</span><h1>SHIFTREXへようこそ</h1><p>予約とチケット情報はLINEログインで確認できます。</p>${view.invite?`<div class="alert alert-good">招待リンクを確認しました。LINEで会員登録を完了してください。</div>`:''}<a class="button main" href="/api/auth/line/start${view.invite?'?invite='+encodeURIComponent(view.invite):''}">LINEでログインする</a><p class="muted small">会員登録はジム管理者が行います。初回利用には専用招待リンクが必要です。</p></section>`);
  }
 }
-function heading(title,subtitle){if(!admin)return subtitle?`<div class="heading member-intro"><p>${h(subtitle)}</p></div>`:'';return `<div class="heading"><div class="eyebrow">SHIFTREX MANAGEMENT</div><h1>${h(title)}</h1>${subtitle?`<p>${h(subtitle)}</p>`:''}</div>`;}
+function heading(title,subtitle){if(!admin)return subtitle?`<div class="heading member-intro"><p>${h(subtitle)}</p></div>`:'';return subtitle?`<div class="heading admin-page-description"><p>${h(subtitle)}</p></div>`:'';}
 function block(title,body,other=''){return `<section class="panel"><div class="panel-head"><h2>${h(title)}</h2>${other}</div>${body}</section>`;}
 const rRow=(title,subtitle,right)=>`<div class="line-item"><div class="line-text"><strong>${h(title)}</strong>${subtitle?`<small>${h(subtitle)}</small>`:''}</div>${right||''}</div>`;
 function homeMember(){const s=view.data;const next=s.bookings.filter(b=>b.status==='confirmed'&&b.starts_at>=today()).sort((a,b)=>a.starts_at.localeCompare(b.starts_at))[0];const count=s.tickets.reduce((x,t)=>x+t.available_count,0);
